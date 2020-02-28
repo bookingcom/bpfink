@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"bytes"
 	"os"
 	"sync"
 	"time"
@@ -228,6 +229,100 @@ func (as *AccessState) Save(db *AgentDB) error {
 func (as *AccessState) Load(db *AgentDB) (err error) {
 	as.current, err = db.LoadAccess()
 	return
+}
+
+/* --------------------------------- Generic --------------------------------- */
+
+type (
+	//GenericState struct keeps track of state changes based on GenericListener struct and methods
+	GenericState struct {
+		*GenericListener
+		current, next Generic
+	}
+)
+
+//Parse calls parse(), and update new UserState
+func (gs *GenericState) Parse() (State, error) {
+	gs.Debug().Msg("parsing generic file")
+
+	switch generic, err := gs.parse(); {
+	case err == nil:
+		gs.next = generic
+		return gs, nil
+	case IsNotExist(err): //file deleted
+		return gs, nil
+	default:
+		return nil, err
+	}
+}
+
+//Changed checks if the new UserState instance is different from old UserState instance
+func (gs *GenericState) Changed() bool {
+	if gs.next.IsEmpty() && !gs.current.IsEmpty() {
+		return true
+	}
+	gs.Debug().Msgf("A: %v VS B: %v", gs.current.Contents, gs.next.Contents)
+	res := bytes.Compare(gs.current.Contents, gs.next.Contents)
+	if res == 0 {
+		return false
+	}
+	return true
+}
+
+//Created checks if the current UserState has been created
+func (gs *GenericState) Created() bool { return len(gs.current.Contents) == 0 }
+
+//Notify is the method to notify of a change in state
+func (gs *GenericState) Notify(cmd string) {
+	if gs.current.IsEmpty() {
+		gs.Warn().
+			Object("generic", LogGeneric(*gs)).
+			Str("path", gs.File).
+			Str("processName", cmd).
+			Msg("generic file created")
+		return
+	}
+	if gs.next.IsEmpty() {
+		gs.Warn().
+			Object("generic", LogGeneric(*gs)).
+			Str("path", gs.File).
+			Str("processName", cmd).
+			Msg("generic file deleted")
+		return
+	}
+	gs.Warn().
+		Object("generic", LogGeneric(*gs)).
+		Str("path", gs.File).
+		Str("processName", cmd).
+		Msg("generic file Modified")
+}
+
+//Teardown is the reset method when a change has been detected. Set new state to old state, and reload.
+func (gs *GenericState) Teardown() error {
+	gs.current = gs.next
+	gs.next = Generic{}
+	return nil
+}
+
+//Register returns a list of files to watch for changes
+func (gs *GenericState) Register() []string {
+	return gs.GenericListener.Register()
+}
+
+//Save commits a state to the local DB instance.
+func (gs *GenericState) Save(db *AgentDB) error {
+	gs.Debug().Object("generic", LogGeneric(*gs)).Msg("save generic file")
+	return db.SaveGeneric(gs.next)
+}
+
+//Load reads in current state from local db instance
+func (gs *GenericState) Load(db *AgentDB) error {
+	generic, err := db.LoadGeneric()
+	if err != nil {
+		return err
+	}
+	gs.current = generic
+	return err
 }
 
 /* ------------------------------ NOP CONSUMER ------------------------------ */

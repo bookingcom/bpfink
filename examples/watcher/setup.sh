@@ -46,23 +46,23 @@ _shadow () {
 
 _config () {
 	echo "bcc = \"${PROJECT}/pkg/ebpf/vfs.o\"" >> bpfink.toml
+	echo "keyfile = \"\"" >> bpfink.toml
 	cat >> bpfink.toml <<- 'EOF'
 		level = "info"
 		database = "bpfink.db"
-	
 		[consumers]
 	EOF
-	echo "root = \"${PROJECT}/examples/watcher/test-dir/\"" >> bpfink.toml
+	echo "root = \"/\"" >> bpfink.toml
 
-	echo "access = \"bpfink.access\"" >> bpfink.toml
+	echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >> bpfink.toml
+	echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\"]" >> bpfink.toml
 	cat >> bpfink.toml <<- 'EOF'
 
 		[consumers.users]
 	EOF
-	echo "passwd = \"bpfink.passwd\"" >> bpfink.toml
-	echo "shadow = \"bpfink.shadow\"" >> bpfink.toml
+	echo "passwd = \"${PROJECT}/examples/watcher/test-dir/bpfink.passwd\"" >> bpfink.toml
+	echo "shadow = \"${PROJECT}/examples/watcher/test-dir/bpfink.shadow\"" >> bpfink.toml
 	cat >> bpfink.toml <<- 'EOF'
-
 		[MetricsConfig]
 		graphiteHost = "127.0.0.1:3002"
 		namespace = ""
@@ -71,12 +71,16 @@ _config () {
 		hostRolePath = "" # Path to file to identify server type
 		hostRoleToken = ""
 		hostRoleKey = "" # Key to look for in file
+
 	EOF
 }
 
 init () {
 	mkdir test-dir
 	cd test-dir
+	mkdir -p dynamic-watcher/dir-test
+	touch dynamic-watcher/testFile
+	touch dynamic-watcher/dir-test/example.txt
 	_passwd
 	_shadow
 	_access
@@ -86,10 +90,10 @@ init () {
 
 run_test () {
 	printf "\n\nwaiting for bpfink to start\n\n"
-	sleep 3
+	sleep 7
 
 	##Access
-	printf "adding '+:nobody:nobody' to bpfink.access\n"
+	printf "\n\nadding '+:nobody:nobody' to bpfink.access\n"
 	echo "+:nobody:nobody">> bpfink.access
 	sleep 2
 	printf "\n\nremove last addition\n"
@@ -110,6 +114,18 @@ run_test () {
 	sed -i '$ d' bpfink.passwd
 	sed -i '$ d' bpfink.passwd
 	sed -i '$ d' bpfink.shadow
+	sleep 2
+
+	printf "\n\ncreate a new file in dynamic-watcher/"
+	echo "Real Time file creation" >> dynamic-watcher/dynamic-file.txt
+	sleep 2
+
+	printf "\n\ncreate a new dir in dynamic-watcher"
+	mkdir dynamic-watcher/realtimePath
+	sleep 2
+
+	printf "\n\ncreate a new file in the newly created in dynamic-watcher"
+	touch dynamic-watcher/realtimePath/dynamicPathFile
 	sleep 2
 
 	##Future examples

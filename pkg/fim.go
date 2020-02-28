@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/iovisor/gobpf/elf"
@@ -21,6 +22,7 @@ const (
 	resultTableName = "events"
 	rulesTableName  = "rules"
 	taskComLen      = 16
+	dnameInlineLen  = 32
 	chanSize        = 10 // totally arbitrary for now
 	bpfAny          = 0  // flag for map updates.
 )
@@ -45,6 +47,7 @@ type (
 		Inode  uint64
 		Device uint64
 		Com    [taskComLen]byte
+		Name   [dnameInlineLen]byte
 	}
 	//FIM struct that represents BPF event system
 	FIM struct {
@@ -219,6 +222,7 @@ func (f *FIM) start() error {
 					f.error(xerrors.Errorf("failed to decode received data %q: %w", data, err))
 					continue
 				}
+				spath := ""
 				f.Debug().Str("event", fmt.Sprint(e)).Msg("message from ebpf")
 				cmdline := f.getCMDLine(e)
 				comLen := 0
@@ -231,21 +235,50 @@ func (f *FIM) start() error {
 					}
 					cmdline = string(e.Com[:comLen])
 				}
-				path, ok := f.mapping.Load(e.Inode)
-				if !ok {
-					f.Error().Msgf("could not find key: %v in map", e.Inode)
-					var (
-						pkey = (unsafe.Pointer(&e.Inode))
-					)
-					if err := f.Module.DeleteElement(f.RulesTable, pkey); err != nil {
-						f.Error().Err(err)
+				// When the user does something like mkdir -p multiple dir are create very quickly.
+				// The BPF program is added the new dir inode into the look up map. So that events are not missed.
+				// By introducing a very small sleep and retry logic, we allow for all bpf events to be received before
+				// trying to process them. This accounts for the fact that events could be out of order.
+				if e.Mode == 3 { //dir creation
+					time.Sleep(50 * time.Millisecond)
+					if _, ok := f.mapping.Load(e.Inode); !ok {
+						time.Sleep(10 * time.Millisecond)
 					}
-					continue
 				}
 
-				spath, ok := path.(string)
-				if !ok {
-					f.Error().Msgf("could not assert path into string key: %v in map", e.Inode)
+				if e.Mode == 4 || e.Mode == 3 {
+					f.Debug().Msgf("name: %v", e.Name)
+					f.Debug().Msgf("name: %v", string(e.Name[:len(e.Name)]))
+
+					end := -1
+					for index, char := range e.Name {
+						if char == 0 && end == -1 {
+							end = index
+							break
+						}
+					}
+					if end > 0 {
+						spath = string(e.Name[:end])
+						//todo build out fullpath/rel path.
+					}
+				} else {
+
+					path, ok := f.mapping.Load(e.Inode)
+					if !ok {
+						f.Error().Msgf("could not find key: %v in map", e.Inode)
+						var (
+							pkey = (unsafe.Pointer(&e.Inode))
+						)
+						if err := f.Module.DeleteElement(f.RulesTable, pkey); err != nil {
+							f.Error().Err(err)
+						}
+						continue
+					}
+
+					spath, ok = path.(string)
+					if !ok {
+						f.Error().Msgf("could not assert path into string key: %v in map", e.Inode)
+					}
 				}
 				f.Events <- Event{
 					e.Mode, e.PID, e.UID, e.Size, e.Inode, e.Device,
@@ -289,9 +322,10 @@ func (f *FIM) getCMDLine(e rawEvent) string {
 }
 
 //Add method to add a new file to BPF monitor
-func (f *FIM) Add(name string) error {
+func (f *FIM) AddFile(name string) error {
 	key, err := NewKey(name)
 	if err != nil {
+		f.Error().Err(err).Msgf("Error stating file: %v", name)
 		return err
 	}
 	f.Debug().Str("file", name).Msgf("created/updated Key : %v", key)
@@ -307,7 +341,7 @@ func (f *FIM) Add(name string) error {
 }
 
 //Remove method to remove a file from BPF monitor
-func (f *FIM) Remove(name string) error {
+func (f *FIM) RemoveFile(name string) error {
 	rawKey, ok := f.reverse.Load(name)
 	if !ok {
 		err := errors.New("error getting key")
@@ -336,4 +370,64 @@ func (f *FIM) Remove(name string) error {
 	f.reverse.Delete(name)
 	f.Debug().Msgf("map key: %v, with value: %v", id, name)
 	return nil
+}
+
+//Add method to add a new file to BPF monitor
+func (f *FIM) AddInode(key uint64, fileName string) error {
+
+	f.Debug().Str("file", fileName).Msgf("created/updated Key : %v", key)
+	value := 1
+	pkey, pvalue := unsafe.Pointer(&key), unsafe.Pointer(&value)
+	f.Debug().Str("file", fileName).Msg("pushing to ebpf")
+	if err := f.Module.UpdateElement(f.RulesTable, pkey, pvalue, bpfAny); err != nil {
+		return err
+	}
+	f.mapping.Store(key, fileName)
+	f.reverse.Store(fileName, key)
+	return nil
+}
+
+//Remove method to remove a file from BPF monitor
+func (f *FIM) RemoveInode(key uint64) (string, error) {
+	rawName, ok := f.mapping.Load(key)
+	if !ok {
+		err := errors.New("error getting file name")
+		f.Error().Err(err)
+		return "", err
+	}
+	name, ok := rawName.(string)
+	if !ok {
+		err := errors.New("error casting file name")
+		f.Error().Err(err)
+		return "", err
+	}
+	var (
+		pkey = (unsafe.Pointer(&key))
+	)
+
+	if err := f.Module.DeleteElement(f.RulesTable, pkey); err != nil {
+		f.Error().Err(err)
+		return "", err
+	}
+
+	f.mapping.Delete(key)
+	f.reverse.Delete(name)
+	f.Debug().Msgf("map key: %v, with value: %v", key, name)
+	return name, nil
+}
+
+func (f *FIM) GetFileFromInode(key uint64) (string, error) {
+	rawName, ok := f.mapping.Load(key)
+	if !ok {
+		err := errors.New("error getting file name")
+		f.Error().Err(err)
+		return "", err
+	}
+	name, ok := rawName.(string)
+	if !ok {
+		err := errors.New("error casting file name")
+		f.Error().Err(err)
+		return "", err
+	}
+	return name, nil
 }

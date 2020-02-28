@@ -14,9 +14,10 @@ type (
 )
 
 const (
-	bpfinkDB    = "bpfink"
-	usersKey  = "users"
-	accessKey = "access"
+	bpfinkDB     = "bpfink"
+	usersKey   = "users"
+	accessKey  = "access"
+	genericKey = "generic"
 )
 
 func (a *AgentDB) save(k string, v interface{}) error {
@@ -59,6 +60,9 @@ func (a *AgentDB) SaveUsers(users Users) error { return a.save(usersKey, users) 
 //SaveAccess method to save access config
 func (a *AgentDB) SaveAccess(access Access) error { return a.save(accessKey, access) }
 
+//SaveGeneric method to save generic files
+func (a *AgentDB) SaveGeneric(generic Generic) error { return a.save(genericKey, generic) }
+
 //LoadUsers method to load users
 func (a *AgentDB) LoadUsers() (Users, error) {
 	users := Users{}
@@ -69,4 +73,10 @@ func (a *AgentDB) LoadUsers() (Users, error) {
 func (a *AgentDB) LoadAccess() (Access, error) {
 	access := Access{}
 	return access, a.load(accessKey, &access)
+}
+
+//LoadGeneric method to load access
+func (a *AgentDB) LoadGeneric() (Generic, error) {
+	generic := Generic{}
+	return generic, a.load(genericKey, &generic)
 }

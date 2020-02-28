@@ -2,9 +2,13 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -24,6 +28,8 @@ type (
 		Debug         bool
 		Level         string
 		Database      string
+		Keyfile       string
+		key           []byte
 		BCC           string `mapstructure:"bcc"`
 		MetricsConfig struct {
 			GraphiteHost       string
@@ -41,7 +47,12 @@ type (
 			Users   struct {
 				Shadow, Passwd string
 			}
+			Generic []string
 		}
+	}
+	GenericFile struct {
+		File  string
+		IsDir bool
 	}
 )
 
@@ -51,6 +62,7 @@ const (
 	//DefaultDatabase default database file location
 	DefaultDatabase       = "/var/lib/bpfink.db"
 	puppetFileColumnCount = 2
+	keySize               = 16
 )
 
 func (c Configuration) logger() (logger zerolog.Logger) {
@@ -97,7 +109,134 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 		}
 		consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 	}
+
+	if len(c.Consumers.Generic) > 0 {
+		genericFiles := c.genericConsumer(fs)
+		for _, genericFile := range genericFiles {
+			state := &pkg.GenericState{
+				GenericListener: pkg.NewGenericListener(func(l *pkg.GenericListener) {
+					l.File = genericFile.File
+					l.IsDir = genericFile.IsDir
+					l.Key = c.key
+					l.Fs, l.Logger = fs, c.logger()
+				}),
+			}
+			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+		}
+	}
 	return
+}
+
+func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
+	logger := c.logger()
+	genericFiles := []GenericFile{}
+	for _, fullPath := range c.Consumers.Generic {
+		pkgFile := pkg.NewFile(func(file *pkg.File) {
+			file.Fs, file.Path, file.Logger = fs, fullPath, logger
+		})
+
+		PathFull := ""
+		if baseFile, ok := pkgFile.Fs.(*afero.BasePathFs); ok {
+			PathFull, _ = baseFile.RealPath(fullPath)
+		}
+		if PathFull == "" {
+			PathFull = fullPath
+		}
+		logger.Debug().Msgf("generic file to watch: %v", PathFull)
+		PathFull, fi := c.resolvePath(PathFull)
+		if PathFull == "" {
+			continue //could not resolve the file. skip for now.
+		}
+		if c.checkIgnored(PathFull, fs) {
+			continue //skip ignored file
+		}
+		switch mode := fi.Mode(); {
+		case mode.IsDir():
+			logger.Debug().Msg("Generic is dir")
+			err := filepath.Walk(PathFull, func(path string, info os.FileInfo, err error) error {
+				isDir := info.IsDir()
+				walkPath, _ := c.resolvePath(path)
+				if walkPath == "" {
+					return nil //path could not be resolved skip for now
+				}
+				if c.checkIgnored(walkPath, fs) {
+					return nil //skip for now
+				}
+
+				logger.Debug().Msgf("Generic Path: %v", path)
+				genericFiles = append(genericFiles, GenericFile{File: path, IsDir: isDir})
+				return nil
+			})
+			if err != nil {
+				logger.Error().Err(err).Msgf("error walking dir: %v", PathFull)
+			}
+		case mode.IsRegular():
+			logger.Debug().Msg("Generic is file")
+			logger.Debug().Msgf("Generic Path: %v", PathFull)
+			genericFiles = append(genericFiles, GenericFile{File: PathFull, IsDir: false})
+		default:
+			logger.Debug().Msg("Generic is dir")
+		}
+	}
+	return genericFiles
+}
+
+func (c Configuration) resolvePath(PathFull string) (string, os.FileInfo) {
+	logger := c.logger()
+	fi, err := os.Lstat(PathFull)
+	if err != nil {
+		logger.Error().Err(err).Msgf("error getting file stat: %v", PathFull)
+		return "", nil
+	}
+
+	logger.Debug().Msgf("is symlink: %v", fi.Mode()&os.ModeSymlink != 0)
+	if fi.Mode()&os.ModeSymlink != 0 {
+		linkPath, err := os.Readlink(PathFull)
+		if err != nil {
+			logger.Error().Err(err).Msgf("error reading link: %v", PathFull)
+			return "", nil
+		}
+		logger.Debug().Msgf("resolved link: %v", linkPath)
+
+		if len(linkPath) > 0 && string(linkPath[0]) == "." { //relitive path
+			linkBasePath := filepath.Dir(PathFull)
+			logger.Debug().Msgf("linkBasePath: %v", linkBasePath)
+			absLinkPath := filepath.Join(linkBasePath, linkPath)
+
+			linkPath = absLinkPath
+			logger.Debug().Msgf("full link path: %v", absLinkPath)
+		}
+		_, err = os.Stat(linkPath)
+		if err != nil {
+			logger.Error().Err(err).Msgf("error getting file stat for readLinked file: %v", linkPath)
+			return "", nil
+		}
+		PathFull = linkPath
+	}
+	return PathFull, fi
+}
+
+func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
+	logger := c.logger()
+	base, ok := fs.(*afero.BasePathFs)
+	if !ok {
+		logger.Error().Msg("Could not type assert")
+		return false
+	}
+	passwdFilePath, _ := base.RealPath(c.Consumers.Users.Passwd)
+	shodowFilePath, _ := base.RealPath(c.Consumers.Users.Shadow)
+	accessFilePath, _ := base.RealPath(c.Consumers.Access)
+
+	switch path {
+	case passwdFilePath:
+		return true
+	case shodowFilePath:
+		return true
+	case accessFilePath:
+		return true
+	default:
+		return false
+	}
 }
 
 func (c Configuration) metrics() (*pkg.Metrics, error) {
@@ -168,7 +307,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 		}
 	}
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
-		w.Logger, w.Consumers, w.FIM = logger, consumers.Consumers(), fim
+		w.Logger, w.Consumers, w.FIM, w.Database, w.Key = logger, consumers.Consumers(), fim, database, c.key
 	}), nil
 
 }
@@ -232,7 +371,20 @@ func run() error {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("error starting bpf metrics")
 	}
-
+	key := make([]byte, keySize)
+	if config.Keyfile == "" {
+		if _, err := io.ReadFull(rand.Reader, key); err != nil {
+			logger.Fatal().Msg("failed to create a new key")
+		}
+		config.key = key
+	} else {
+		//readin keyfile
+		dat, err := ioutil.ReadFile(config.Keyfile)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Failed to read key file")
+		}
+		config.key = dat[:16]
+	}
 	watcher, err := config.watcher()
 	if err != nil {
 		return err
