@@ -210,7 +210,7 @@ func (w *Watcher) Start() error {
 			case dirCreate:
 				w.addInode(&event, true)
 			case fileCreate:
-				file, err := w.GetFileFromInode(event.Device) //event triggers occasionally after file has been created.
+				file, err := w.GetFileFromInode(event.Device) //event triggers occassionally after file has been created.
 				if file == "" && err != nil {
 					w.addInode(&event, false)
 					event.Inode = event.Device //update so that event is processed correctly.
