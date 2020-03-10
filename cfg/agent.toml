@@ -1,0 +1,22 @@
+level = "info"
+database = "bpfink.db"
+bcc = "pkg/ebpf/vfs.o"
+
+
+[consumers]
+root = "/"
+access = "/access.conf"
+
+[consumers.users]
+root = "/"
+passwd = "/passwd"
+shadow = "/shadow"
+
+[MetricsConfig]
+graphiteHost = "127.0.0.1:3002"
+namespace = ""
+graphiteMode = "1" #1 = no logs 2 = stdout 3 = graphite server
+collectionInterval = "30s" # Seconds
+hostRolePath = "" # Path to file to identify server type
+hostRoleToken = ""
+hostRoleKey = "" # Key to look for in file
