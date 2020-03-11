@@ -85,7 +85,7 @@ Right now, dynamic file/dir watching is activily being worked on, and will be th
 
 Contributions
 -------------
-We welcome all contributions, and hope to build a great product with a community of backers. Please read our [Contributions guide](./CONTRIBUTIONS.md) for expectations when contributing to this repo. 
+We welcome all contributions, and hope to build a great product with a community of backers. Please read our [Contributions guide](./CONTRIBUTING.md) for expectations when contributing to this repo. 
 
 
 ACKNOWLEDGMENT
