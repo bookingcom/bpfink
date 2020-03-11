@@ -45,7 +45,7 @@ func (p *Parser) Parse() error {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if string(line[0]) == "#" {
+		if len(line) <= 0 || string(line[0]) == "#" {
 			continue
 		}
 
