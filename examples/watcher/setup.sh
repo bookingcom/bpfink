@@ -81,6 +81,9 @@ init () {
 	mkdir -p dynamic-watcher/dir-test
 	touch dynamic-watcher/testFile
 	touch dynamic-watcher/dir-test/example.txt
+	cd dynamic-watcher
+	ln -s dir-test/example.txt linked_text
+	cd ..
 	_passwd
 	_shadow
 	_access
@@ -116,15 +119,19 @@ run_test () {
 	sed -i '$ d' bpfink.shadow
 	sleep 2
 
-	printf "\n\ncreate a new file in dynamic-watcher/"
+	printf "\n\ncreate a new file in dynamic-watcher\n\n"
 	echo "Real Time file creation" >> dynamic-watcher/dynamic-file.txt
 	sleep 2
 
-	printf "\n\ncreate a new dir in dynamic-watcher"
+	printf "\n\nwrite to sym linked file\n\n"
+	echo "symlink file write" >> dynamic-watcher/linked_text
+	sleep 2
+
+	printf "\n\ncreate a new dir in dynamic-watcher\n\n"
 	mkdir dynamic-watcher/realtimePath
 	sleep 2
 
-	printf "\n\ncreate a new file in the newly created in dynamic-watcher"
+	printf "\n\ncreate a new file in the newly created in dynamic-watcher\n\n"
 	touch dynamic-watcher/realtimePath/dynamicPathFile
 	sleep 2
 

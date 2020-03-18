@@ -43,7 +43,6 @@ var (
 )
 
 const (
-	writeEvent  = 1
 	renameEvent = 2
 	dirCreate   = 3
 	fileCreate  = 4
@@ -211,23 +210,12 @@ func (w *Watcher) Start() error {
 			case dirCreate:
 				w.addInode(&event, true)
 			case fileCreate:
-				file, err := w.GetFileFromInode(event.Device) //event triggers occassionally after file has been created.
+				file, err := w.GetFileFromInode(event.Device) //event triggers occasionally after file has been created.
 				if file == "" && err != nil {
 					w.addInode(&event, false)
 					event.Inode = event.Device //update so that event is processed correctly.
 				} else {
 					continue
-				}
-			}
-			w.Debug().Object("event", LogEvent(event)).Msg("event caught")
-			switch event.Mode {
-			case dirCreate:
-				w.addInode(&event, true)
-			case fileCreate:
-				file, err := w.GetFileFromInode(event.Device) //event triggers occassionally after file has been created.
-				if file == "" && err != nil {
-					w.addInode(&event, false)
-					event.Inode = event.Device //update so that event is processed correctly.
 				}
 			}
 			w.Debug().Object("event", LogEvent(event)).Msg("event caught")

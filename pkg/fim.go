@@ -85,12 +85,14 @@ func InitFIM(bccFile string, logger zerolog.Logger) (*FIM, error) {
 
 	err := mod.Load(nil)
 	if err != nil {
-		return nil, xerrors.Errorf("Error loading '%s' ebpf object: %v",
-			bccFile, err)
+		logger.Error().Err(err).Msgf("Error loading '%s' ebpf", bccFile)
+		return nil, err
 	}
 	rulesTable := mod.Map(rulesTableName)
 	if rulesTable == nil {
-		return nil, xerrors.Errorf("failed to create new elf map.")
+		err = errors.New("failed to create new elf map")
+		logger.Error().Err(err)
+		return nil, err
 	}
 
 	logger.Debug().Msg("unpinning maps")
@@ -103,18 +105,21 @@ func InitFIM(bccFile string, logger zerolog.Logger) (*FIM, error) {
 
 	err = mod.Load(nil)
 	if err != nil {
-		return nil, xerrors.Errorf("Error loading '%s' ebpf object: %v",
-			bccFile, err)
+		logger.Error().Err(err).Msgf("Error loading '%s' ebpf", bccFile)
+		return nil, err
 	}
 
 	rulesTable = mod.Map(rulesTableName)
 	if rulesTable == nil {
-		return nil, xerrors.Errorf("failed to create new elf map.")
+		err = errors.New("failed to create new elf map")
+		logger.Error().Err(err)
+		return nil, err
 	}
 
 	err = mod.EnableKprobes(128)
 	if err != nil {
-		return nil, xerrors.Errorf("Error loading kprobes: %v", err)
+		logger.Error().Err(err).Msg("Error loading kprobes")
+		return nil, err
 	}
 
 	fim := &FIM{
@@ -129,11 +134,6 @@ func InitFIM(bccFile string, logger zerolog.Logger) (*FIM, error) {
 	}
 
 	return fim, fim.start()
-}
-
-//Status NOOP
-func (f *FIM) Status() bool {
-	return true
 }
 
 //Stats method to print status of code
@@ -321,7 +321,7 @@ func (f *FIM) getCMDLine(e rawEvent) string {
 	return ""
 }
 
-//Add method to add a new file to BPF monitor
+//AddFile method to add a new file to BPF monitor
 func (f *FIM) AddFile(name string) error {
 	key, err := NewKey(name)
 	if err != nil {
@@ -340,7 +340,7 @@ func (f *FIM) AddFile(name string) error {
 	return nil
 }
 
-//Remove method to remove a file from BPF monitor
+//RemoveFile method to remove a file from BPF monitor
 func (f *FIM) RemoveFile(name string) error {
 	rawKey, ok := f.reverse.Load(name)
 	if !ok {
@@ -372,7 +372,7 @@ func (f *FIM) RemoveFile(name string) error {
 	return nil
 }
 
-//Add method to add a new file to BPF monitor
+//AddInode method to add a new file to BPF monitor
 func (f *FIM) AddInode(key uint64, fileName string) error {
 
 	f.Debug().Str("file", fileName).Msgf("created/updated Key : %v", key)
@@ -387,7 +387,7 @@ func (f *FIM) AddInode(key uint64, fileName string) error {
 	return nil
 }
 
-//Remove method to remove a file from BPF monitor
+//RemoveInode method to remove a file from BPF monitor
 func (f *FIM) RemoveInode(key uint64) (string, error) {
 	rawName, ok := f.mapping.Load(key)
 	if !ok {
@@ -416,6 +416,7 @@ func (f *FIM) RemoveInode(key uint64) (string, error) {
 	return name, nil
 }
 
+//GetFileFromInode look up filename for given inode
 func (f *FIM) GetFileFromInode(key uint64) (string, error) {
 	rawName, ok := f.mapping.Load(key)
 	if !ok {

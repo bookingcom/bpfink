@@ -7,7 +7,7 @@ import (
 )
 
 type (
-	//Access struct used to store changes to access.conf
+	//Generic struct used to store changes to generic files
 	Generic struct {
 		Contents []byte
 	}
@@ -28,7 +28,7 @@ type (
 //IsEmpty method to check if diff is empty
 func (a Generic) IsEmpty() bool { return len(a.Contents) == 0 }
 
-//AccessFileOpt function used to return metadata on a file
+//GenericFileOpt function used to return metadata on a file
 func GenericFileOpt(fs afero.Fs, path string, logger zerolog.Logger) func(*GenericListener) {
 	return func(listener *GenericListener) {
 		listener.Fs = NewFile(func(file *File) {
@@ -39,7 +39,7 @@ func GenericFileOpt(fs afero.Fs, path string, logger zerolog.Logger) func(*Gener
 	}
 }
 
-//NewAccessListener function to create a new file event listener
+//NewGenericListener function to create a new file event listener
 func NewGenericListener(options ...func(*GenericListener)) *GenericListener {
 	gl := &GenericListener{Logger: zerolog.Nop()}
 	for _, option := range options {

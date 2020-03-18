@@ -14,7 +14,7 @@ type (
 )
 
 const (
-	bpfinkDB     = "bpfink"
+	bpfinkDB   = "bpfink"
 	usersKey   = "users"
 	accessKey  = "access"
 	genericKey = "generic"

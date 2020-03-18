@@ -50,6 +50,7 @@ type (
 			Generic []string
 		}
 	}
+	// is the struct for watching generic file
 	GenericFile struct {
 		File  string
 		IsDir bool
@@ -198,14 +199,14 @@ func (c Configuration) resolvePath(PathFull string) (string, os.FileInfo) {
 		}
 		logger.Debug().Msgf("resolved link: %v", linkPath)
 
-		if len(linkPath) > 0 && string(linkPath[0]) == "." { //relitive path
-			linkBasePath := filepath.Dir(PathFull)
-			logger.Debug().Msgf("linkBasePath: %v", linkBasePath)
-			absLinkPath := filepath.Join(linkBasePath, linkPath)
+		// if len(linkPath) > 0 && string(linkPath[0]) == "." { //relitive path
+		linkBasePath := filepath.Dir(PathFull)
+		logger.Debug().Msgf("linkBasePath: %v", linkBasePath)
+		absLinkPath := filepath.Join(linkBasePath, linkPath)
 
-			linkPath = absLinkPath
-			logger.Debug().Msgf("full link path: %v", absLinkPath)
-		}
+		linkPath = absLinkPath
+		logger.Debug().Msgf("full link path: %v", absLinkPath)
+		// }
 		_, err = os.Stat(linkPath)
 		if err != nil {
 			logger.Error().Err(err).Msgf("error getting file stat for readLinked file: %v", linkPath)
