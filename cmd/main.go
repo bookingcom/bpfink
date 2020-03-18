@@ -155,11 +155,11 @@ func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
 		case mode.IsDir():
 			logger.Debug().Msg("Generic is dir")
 			err := filepath.Walk(PathFull, func(path string, info os.FileInfo, err error) error {
-				isDir := info.IsDir()
-				walkPath, _ := c.resolvePath(path)
+				walkPath, resolvedInfo := c.resolvePath(path)
 				if walkPath == "" {
 					return nil //path could not be resolved skip for now
 				}
+				isDir := resolvedInfo.IsDir()
 				if c.checkIgnored(walkPath, fs) {
 					return nil //skip for now
 				}
@@ -199,20 +199,24 @@ func (c Configuration) resolvePath(PathFull string) (string, os.FileInfo) {
 		}
 		logger.Debug().Msgf("resolved link: %v", linkPath)
 
-		linkBasePath := filepath.Dir(PathFull)
-		logger.Debug().Msgf("linkBasePath: %v", linkBasePath)
-		absLinkPath := filepath.Join(linkBasePath, linkPath)
+		if len(linkPath) > 0 && string(linkPath[0]) != "/" { //dont resolve absolute paths
+			linkBasePath := filepath.Dir(PathFull)
+			logger.Debug().Msgf("linkBasePath: %v", linkBasePath)
+			absLinkPath := filepath.Join(linkBasePath, linkPath)
 
-		linkPath = absLinkPath
-		logger.Debug().Msgf("full link path: %v", absLinkPath)
+			linkPath = absLinkPath
+			logger.Debug().Msgf("full link path: %v", absLinkPath)
+		}
 
-		_, err = os.Stat(linkPath)
+		fileInfo, err := os.Stat(linkPath)
 		if err != nil {
 			logger.Error().Err(err).Msgf("error getting file stat for readLinked file: %v", linkPath)
 			return "", nil
 		}
+		fi = fileInfo
 		PathFull = linkPath
 	}
+	logger.Debug().Msgf("isDir: %v", fi.IsDir())
 	return PathFull, fi
 }
 
