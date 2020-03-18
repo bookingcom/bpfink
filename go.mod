@@ -4,7 +4,6 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.41.0 // indirect
-	github.com/antlr/antlr4 v0.0.0-20191209171355-242d900ba631 // indirect
 	github.com/boltdb/bolt v1.3.1
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible // indirect

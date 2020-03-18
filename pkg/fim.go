@@ -57,7 +57,6 @@ type (
 		RulesTable *elf.Map
 		resultsMap *elf.PerfMap
 		Events     chan Event
-		Errors     chan error
 		zerolog.Logger
 		closeChannelLoops chan struct{}
 	}
@@ -128,7 +127,6 @@ func InitFIM(bccFile string, logger zerolog.Logger) (*FIM, error) {
 		Module:            mod,
 		RulesTable:        rulesTable,
 		Events:            make(chan Event, chanSize),
-		Errors:            make(chan error, chanSize),
 		Logger:            logger,
 		closeChannelLoops: make(chan struct{}, 1),
 	}
@@ -175,14 +173,6 @@ func (f *FIM) StopBPF() error {
 	return nil
 }
 
-// error sends an error to the errors channel and drops the message if the channel is congested.
-func (f *FIM) error(err error) {
-	select {
-	case f.Errors <- err:
-	default:
-	}
-}
-
 func (f *FIM) start() error {
 	eventChannel := make(chan []byte, chanSize)
 	missedChannel := make(chan uint64, chanSize)
@@ -203,7 +193,7 @@ func (f *FIM) start() error {
 					return
 				}
 				f.Debug().Msg("missed")
-				f.error(xerrors.Errorf("log message count: %v", missedCount))
+				f.Error().Msgf("log message count: %v", missedCount)
 			case <-f.closeChannelLoops:
 				f.Debug().Msg("chan Closed")
 				return
@@ -219,7 +209,7 @@ func (f *FIM) start() error {
 				e := rawEvent{}
 				err := binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &e)
 				if err != nil {
-					f.error(xerrors.Errorf("failed to decode received data %q: %w", data, err))
+					f.Error().Msgf("failed to decode received data %q: %w", data, err)
 					continue
 				}
 				spath := ""

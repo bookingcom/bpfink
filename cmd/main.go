@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"crypto/rand"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -50,7 +49,7 @@ type (
 			Generic []string
 		}
 	}
-	// is the struct for watching generic file
+	//GenericFile is the struct for watching generic file
 	GenericFile struct {
 		File  string
 		IsDir bool
@@ -119,7 +118,8 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 					l.File = genericFile.File
 					l.IsDir = genericFile.IsDir
 					l.Key = c.key
-					l.Fs, l.Logger = fs, c.logger()
+					l.Fs = fs
+					l.Logger = c.logger()
 				}),
 			}
 			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
@@ -199,14 +199,13 @@ func (c Configuration) resolvePath(PathFull string) (string, os.FileInfo) {
 		}
 		logger.Debug().Msgf("resolved link: %v", linkPath)
 
-		// if len(linkPath) > 0 && string(linkPath[0]) == "." { //relitive path
 		linkBasePath := filepath.Dir(PathFull)
 		logger.Debug().Msgf("linkBasePath: %v", linkBasePath)
 		absLinkPath := filepath.Join(linkBasePath, linkPath)
 
 		linkPath = absLinkPath
 		logger.Debug().Msgf("full link path: %v", absLinkPath)
-		// }
+
 		_, err = os.Stat(linkPath)
 		if err != nil {
 			logger.Error().Err(err).Msgf("error getting file stat for readLinked file: %v", linkPath)
@@ -411,8 +410,6 @@ func handleExit(watcher *pkg.Watcher) {
 			}
 			watcher.Logger.Debug().Msg("graceful shutdown complete")
 			os.Exit(0)
-		case err := <-watcher.Errors:
-			fmt.Printf("bcc error: %+v\n", err)
 		}
 	}
 }
