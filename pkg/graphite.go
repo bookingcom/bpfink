@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -27,6 +28,7 @@ type Metrics struct {
 	Hostname            string
 	RoleName            string
 	Logger              zerolog.Logger
+	mux                 sync.Mutex
 	missedCount         map[string]int64
 	hitCount            map[string]int64
 }
@@ -42,6 +44,10 @@ const (
 	graphiteRemote
 	provbeVfsWrite  = "pvfs_write"
 	provbeVfsRename = "pvfs_rename"
+	provbeVfsUnlink = "pvfs_unlink"
+	provbeVfsRmDir  = "pvfs_rmdir"
+	pdonePathCreate = "pdone_path_create"
+	pdoDentryOpen   = "pdo_dentry_open"
 )
 
 //Init method to start up graphite metrics
@@ -116,7 +122,7 @@ func (m *Metrics) fetchBPFMetrics() (map[string]bpfMetrics, error) {
 		line := scanner.Text()
 		tokens := strings.Fields(line)
 
-		if strings.Contains(tokens[0], "pvfs_write") {
+		if strings.Contains(tokens[0], provbeVfsWrite) {
 			bpfMetric, err := m.parseBPFLine(tokens, provbeVfsWrite)
 			if err != nil {
 				return nil, err
@@ -124,12 +130,44 @@ func (m *Metrics) fetchBPFMetrics() (map[string]bpfMetrics, error) {
 			BPFMetrics[provbeVfsWrite] = *bpfMetric
 		}
 
-		if strings.Contains(tokens[0], "pvfs_rename") {
+		if strings.Contains(tokens[0], provbeVfsRename) {
 			bpfMetric, err := m.parseBPFLine(tokens, provbeVfsRename)
 			if err != nil {
 				return nil, err
 			}
 			BPFMetrics[provbeVfsRename] = *bpfMetric
+		}
+
+		if strings.Contains(tokens[0], provbeVfsUnlink) {
+			bpfMetric, err := m.parseBPFLine(tokens, provbeVfsUnlink)
+			if err != nil {
+				return nil, err
+			}
+			BPFMetrics[provbeVfsUnlink] = *bpfMetric
+		}
+
+		if strings.Contains(tokens[0], provbeVfsRmDir) {
+			bpfMetric, err := m.parseBPFLine(tokens, provbeVfsRmDir)
+			if err != nil {
+				return nil, err
+			}
+			BPFMetrics[provbeVfsRmDir] = *bpfMetric
+		}
+
+		if strings.Contains(tokens[0], pdonePathCreate) {
+			bpfMetric, err := m.parseBPFLine(tokens, pdonePathCreate)
+			if err != nil {
+				return nil, err
+			}
+			BPFMetrics[pdonePathCreate] = *bpfMetric
+		}
+
+		if strings.Contains(tokens[0], pdoDentryOpen) {
+			bpfMetric, err := m.parseBPFLine(tokens, pdoDentryOpen)
+			if err != nil {
+				return nil, err
+			}
+			BPFMetrics[pdoDentryOpen] = *bpfMetric
 		}
 	}
 
@@ -148,11 +186,18 @@ func (m *Metrics) parseBPFLine(tokens []string, probeName string) (*bpfMetrics, 
 	if err != nil {
 		return nil, err
 	}
-
+	m.mux.Lock()
+	if m.hitCount == nil {
+		m.hitCount = make(map[string]int64)
+	}
+	if m.missedCount == nil {
+		m.missedCount = make(map[string]int64)
+	}
 	hitRate := currentHit - m.hitCount[probeName]
 	missedRate := currentMiss - m.missedCount[probeName]
 	m.hitCount[probeName] = currentHit
 	m.missedCount[probeName] = currentMiss
+	m.mux.Unlock()
 	return &bpfMetrics{
 		hitRate:    hitRate,
 		missedRate: missedRate,
