@@ -19,6 +19,8 @@ type (
 	LogAccess Access
 	//LogGeneric type wrapper
 	LogGeneric GenericState
+	//LogSudoers type wrapper
+	LogSudoers Sudoers
 )
 
 //MarshalZerologObject method to wrap a logger
@@ -69,4 +71,9 @@ func (la LogAccess) MarshalZerologObject(e *zerolog.Event) {
 func (lg LogGeneric) MarshalZerologObject(e *zerolog.Event) {
 	e.Hex("current", lg.current.Contents)
 	e.Hex("next", lg.next.Contents) //update to aes-gcm
+}
+
+//MarshalZerologObject method to marshal access object
+func (ls LogSudoers) MarshalZerologObject(e *zerolog.Event) {
+	e.Strs("Sudoers", ls.Rule)
 }

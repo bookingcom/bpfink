@@ -44,6 +44,12 @@ _shadow () {
 	EOF
 }
 
+_sudoers () {
+	cat > bpfink.sudoers <<- EOF
+		root ALL = (ALL:ALL) ALL
+	EOF
+}
+
 _config () {
 	echo "bcc = \"${PROJECT}/pkg/ebpf/vfs.o\"" >> bpfink.toml
 	echo "keyfile = \"\"" >> bpfink.toml
@@ -56,6 +62,7 @@ _config () {
 
 	echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >> bpfink.toml
 	echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\", \"/etc\"]" >> bpfink.toml
+	echo "sudoers = \"${PROJECT}/examples/watcher/test-dir/bpfink.sudoers\"" >> bpfink.toml
 	cat >> bpfink.toml <<- 'EOF'
 
 		[consumers.users]
@@ -87,6 +94,7 @@ init () {
 	_passwd
 	_shadow
 	_access
+	_sudoers
 	_config
 	make -r -C "${PROJECT}/pkg/ebpf" || exit
 }

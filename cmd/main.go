@@ -109,7 +109,16 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 		}
 		consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 	}
-
+	if c.Consumers.Sudoers != "" {
+		state := &pkg.SudoersState{
+			SudoersListener: pkg.NewSudoersListener(
+				pkg.SudoersFileOpt(fs, c.Consumers.Sudoers, c.logger()),
+			),
+		}
+		consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+	}
+	logger := c.logger()
+	logger.Debug().Msgf("generic consumers: %v", c.Consumers.Generic)
 	if len(c.Consumers.Generic) > 0 {
 		genericFiles := c.genericConsumer(fs)
 		for _, genericFile := range genericFiles {
