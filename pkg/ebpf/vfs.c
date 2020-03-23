@@ -58,11 +58,7 @@ struct bpf_map_def SEC("maps/events") events = {
 	.type = BPF_MAP_TYPE_PERF_EVENT_ARRAY,
 	.key_size = sizeof(int),
 	.value_size = sizeof(__u32),
-<<<<<<< HEAD
 	.max_entries = 40000,
-=======
-	.max_entries = 4294967296,
->>>>>>> 4264a78... refactor and clean up
 	.map_flags = 0,
 	.pinning = PIN_GLOBAL_NS,
 	.namespace = "bpfink",
@@ -72,11 +68,7 @@ struct bpf_map_def SEC("maps/rules") rules = {
 	.type = BPF_MAP_TYPE_HASH,
 	.key_size = sizeof(u64),
 	.value_size = sizeof(u64),
-<<<<<<< HEAD
 	.max_entries = 40000,
-=======
-	.max_entries = 4294967296,
->>>>>>> 4264a78... refactor and clean up
 	.map_flags = 0,
 	.pinning = PIN_GLOBAL_NS,
 	.namespace = "bpfink",
