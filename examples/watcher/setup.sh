@@ -44,19 +44,26 @@ _shadow() {
 	EOF
 }
 
-_config() {
-  echo "bcc = \"${PROJECT}/pkg/ebpf/vfs.o\"" >>bpfink.toml
-  echo "keyfile = \"\"" >>bpfink.toml
-  cat >>bpfink.toml <<-'EOF'
+_sudoers () {
+	cat > bpfink.sudoers <<- EOF
+		root ALL = (ALL:ALL) ALL
+	EOF
+}
+
+_config () {
+	echo "bcc = \"${PROJECT}/pkg/ebpf/vfs.o\"" >> bpfink.toml
+	echo "keyfile = \"\"" >> bpfink.toml
+	cat >> bpfink.toml <<- 'EOF'
 		level = "info"
 		database = "bpfink.db"
 		[consumers]
 	EOF
   echo "root = \"/\"" >>bpfink.toml
 
-  echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >>bpfink.toml
-  echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\", \"/etc\"]" >>bpfink.toml
-  cat >>bpfink.toml <<-'EOF'
+  echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >> bpfink.toml
+  echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\", \"/etc\"]" >> bpfink.toml
+  echo "sudoers = \"${PROJECT}/examples/watcher/test-dir/bpfink.sudoers\"" >> bpfink.toml
+  cat >> bpfink.toml <<- 'EOF'
 
 		[consumers.users]
 	EOF

@@ -18,6 +18,7 @@ const (
 	usersKey   = "users"
 	accessKey  = "access"
 	genericKey = "generic"
+	sudoersKey = "sudoers"
 )
 
 func (a *AgentDB) save(k string, v interface{}) error {
@@ -63,7 +64,11 @@ func (a *AgentDB) SaveAccess(access Access) error { return a.save(accessKey, acc
 // SaveGeneric method to save generic files
 func (a *AgentDB) SaveGeneric(generic Generic) error { return a.save(genericKey, generic) }
 
-// LoadUsers method to load users
+//SaveSudoers method to save sudoers
+func (a *AgentDB) SaveSudoers(sudoers Sudoers) error { return a.save(sudoersKey, sudoers) }
+
+//LoadUsers method to load users
+>>>>>>> 459a344... Initial commit: Adding consumer for sudoers
 func (a *AgentDB) LoadUsers() (Users, error) {
 	users := Users{}
 	return users, a.load(usersKey, &users)
@@ -79,4 +84,10 @@ func (a *AgentDB) LoadAccess() (Access, error) {
 func (a *AgentDB) LoadGeneric() (Generic, error) {
 	generic := Generic{}
 	return generic, a.load(genericKey, &generic)
+}
+
+//LoadUsers method to load users
+func (a *AgentDB) LoadSudoers() (Sudoers, error) {
+	sudoers := Sudoers{}
+	return sudoers, a.load(sudoersKey, &sudoers)
 }
