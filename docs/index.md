@@ -8,9 +8,8 @@ motivated by the desire to have near real time file monitoring on linux systems.
 Documentation
 -------------
 
-[BPF](./bpf.md) 
-[Build](./build.md)
-[Logs](./logs.md)
+- [BPF](./bpf.md) 
+- [Building](./build.md)
 
 Technical overview
 ------------------
