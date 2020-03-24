@@ -147,7 +147,7 @@ run () {
 	clean
 	init
 	run_test&
-	sudo go run -race ${PROJECT}/cmd/main.go  --config ${PROJECT}/examples/watcher/test-dir/bpfink.toml 
+	sudo go run ${PROJECT}/cmd/main.go  --config ${PROJECT}/examples/watcher/test-dir/bpfink.toml 
 	clean
 }
 

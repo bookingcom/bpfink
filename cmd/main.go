@@ -217,7 +217,11 @@ func (c Configuration) resolvePath(PathFull string) (string, os.FileInfo) {
 		PathFull = linkPath
 	}
 	logger.Debug().Msgf("isDir: %v", fi.IsDir())
-	return PathFull, fi
+	if fi.Mode()&os.ModeIrregular == 0 || fi.Mode()&os.ModeDir == 0 {
+		logger.Debug().Msgf("isDir: %v", fi.IsDir())
+		return PathFull, fi
+	}
+	return "", nil
 }
 
 func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
