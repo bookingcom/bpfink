@@ -20,45 +20,45 @@ __Main dependencies:__
 
 
 ```text
-                   +--------------------+
-                   |                    |
-                   |    File System     |
-                   |                    |
-                   +---------+----------+
-                             |
-                             v
-                      +------+-------+
-                      |              |
-                      |     eBPF     |
-                      |              |
-                      +------+-------+
-                             |
-                +------------+-------------+
-                |                          |
-                v                          v
-     +----------+---------+     +----------+---------+
-     |                    |     |                    |
-     |       Consumer     |     |      Consumer      |
-     |                    |     |                    |
-     | /etc/access.conf   |     |   /etc/password    |
-     |                    |     |   /etc/shadow      |
-     |                    |     |                    |
-     +----------+---------+     +----------+---------+
-                |                          |
-                v                          v
-+---------------+-----------+ +------------+--------------+
-|                           | |                           |
-|           parser          | |          parser           |
-|                           | |                           |
-+--------------+------------+ +--------------+------------+
-               |                             |
-               +-------------+---------------+
-                             |
-       +--------------+      |    +---------------------+
-       |              |      |    |                     |
-       |    BoltDB    +<-----+--->+        STDOUT       |
-       |              |           |                     |
-       +--------------+           +---------------------+
+                                 +--------------------+
+                                 |                    |
+                                 |    File System     |
+                                 |                    |
+                                 +---------+----------+
+                                           |
+                                           v
+                                    +------+-------+
+                                    |              |
+                                    |     eBPF     |
+                                    |              |
+                                    +------+-------+
+                                           |
+                +------------+-------------+--------------------------+
+                |                          |                          |
+                v                          v                          v
+     +----------+---------+     +----------+---------+     +----------+---------+
+     |                    |     |                    |     |                    |
+     |       Consumer     |     |      Consumer      |     |     Consumer       |
+     |                    |     |                    |     |                    |
+     | /etc/access.conf   |     |   /etc/password    |     |      Generic       |
+     |                    |     |   /etc/shadow      |     |      any file      |
+     |                    |     |                    |     |      or dir        |
+     +----------+---------+     +----------+---------+     +----------+---------+
+                |                          |                          |
+                v                          v                          v
++---------------+-----------+ +------------+--------------+ +---------+------------+
+|                           | |                           | |                      |
+|           parser          | |          parser           | |        parser        |
+|                           | |                           | |                      |
++--------------+------------+ +--------------+------------+ +--------------+-------+
+               |                             |                             |
+               +-----------------------------+-----------------------------+
+                                             |
+                       +--------------+      |    +---------------------+
+                       |              |      |    |                     |
+                       |    BoltDB    +<-----+--->+        STDOUT       |
+                       |              |           |                     |
+                       +--------------+           +---------------------+
 ```
 
 bpfink Is a set of consumers connected to file system watcher. We are currently using eBPF to watch vfs_write syscalls in the kernel.
@@ -69,6 +69,7 @@ different consumers for three different use cases:
 (password hash is not logged to avoid offline brute force on leaked logs),
 it also watch for user home directory to detect ssh key injection.
 - Access consumer, just watch __/access.conf__
+- Generic consumer, watches for any existing or new files/directories for any given parent directory
 
 All consumers hold their own states to keep track of changes and diffing. If
 a difference is spotted, the diff is logged to our stdout in json format.
@@ -79,8 +80,6 @@ Current status
 
 This project is activily being developed, and is currently in a beta status. It is functional but things
 will be changing. We will be working on coming up with tasks, so that other can contrubute to the project.
-
-Right now, dynamic file/dir watching is activily being worked on, and will be the next major milestone. Once this is complete, the code should ideally go for a refactor to improve memory usage, and improve code readability. 
 
 
 Contributions
