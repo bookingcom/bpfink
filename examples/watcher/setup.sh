@@ -54,15 +54,15 @@ _config () {
 	echo "bcc = \"${PROJECT}/pkg/ebpf/vfs.o\"" >> bpfink.toml
 	echo "keyfile = \"\"" >> bpfink.toml
 	cat >> bpfink.toml <<- 'EOF'
-		level = "info"
+		level = "debug"
 		database = "bpfink.db"
 		[consumers]
 	EOF
 	echo "root = \"/\"" >> bpfink.toml
 
 	echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >> bpfink.toml
-	echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\", \"/etc\"]" >> bpfink.toml
-	echo "sudoers = \"${PROJECT}/examples/watcher/test-dir/bpfink.sudoers\"" >> bpfink.toml
+	echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\"]" >> bpfink.toml
+	echo "sudoers = [\"${PROJECT}/examples/watcher/test-dir/bpfink.sudoers\", \"/home/rhasini/bpfinktest/testDir\"]" >> bpfink.toml
 	cat >> bpfink.toml <<- 'EOF'
 
 		[consumers.users]
@@ -155,7 +155,7 @@ run () {
 	clean
 	init
 	run_test&
-	sudo go run -race ${PROJECT}/cmd/main.go  --config ${PROJECT}/examples/watcher/test-dir/bpfink.toml 
+	sudo go run -race ${PROJECT}/cmd/main.go  --config ${PROJECT}/examples/watcher/test-dir/bpfink.toml
 	clean
 }
 

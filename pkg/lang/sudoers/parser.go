@@ -52,6 +52,7 @@ func (p *Parser) Parse() error {
 		}
 
 		entries := strings.Fields(line)
+		p.Logger.Debug().Msgf(" Sudoers entries are %v", entries)
 		p.Sudoers = append(p.Sudoers, Sudoer{
 			User: strings.TrimSpace(entries[user]),
 			Host: strings.TrimSpace(entries[host]),

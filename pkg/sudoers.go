@@ -37,11 +37,9 @@ func (s Sudoers) IsEmpty() bool { return len(s.Rule) == 0 }
 //SudoersFileOpt function used to return metadata on a file
 func SudoersFileOpt(fs afero.Fs, path string, logger zerolog.Logger) func(*SudoersListener) {
 	return func(listener *SudoersListener) {
-		listener.Fs = NewFile(func(file *File) {
-			file.Fs, file.Path, file.Logger = fs, path, logger
-		})
 		listener.sudoers = path
 		listener.Logger = logger
+		listener.Fs = fs
 	}
 }
 

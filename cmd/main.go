@@ -42,7 +42,7 @@ type (
 		Consumers struct {
 			Root    string
 			Access  string
-			Sudoers string
+			Sudoers []string
 			Users   struct {
 				Shadow, Passwd string
 			}
@@ -88,6 +88,7 @@ func (c Configuration) logger() (logger zerolog.Logger) {
 
 func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) {
 	fs := afero.NewOsFs()
+
 	if c.Consumers.Root != "" {
 		fs = afero.NewBasePathFs(fs, c.Consumers.Root)
 	}
@@ -109,16 +110,46 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 		}
 		consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 	}
-	if c.Consumers.Sudoers != "" {
-		state := &pkg.SudoersState{
-			SudoersListener: pkg.NewSudoersListener(
-				pkg.SudoersFileOpt(fs, c.Consumers.Sudoers, c.logger()),
-			),
+	if len(c.Consumers.Sudoers) > 0 {
+		logger := c.logger()
+		//get list of files to watch
+		sudoersFiles := []string{}
+		for _, fullPath := range c.Consumers.Sudoers {
+			pkgFile := pkg.NewFile(func(file *pkg.File) {
+				file.Fs, file.Path, file.Logger = fs, fullPath, c.logger()
+			})
+			Path := ""
+			if baseFile, ok := pkgFile.Fs.(*afero.BasePathFs); ok {
+				Path, _ = baseFile.RealPath(fullPath)
+			}
+			if Path == "" {
+				Path = fullPath
+			}
+			Path, fi := c.resolvePath(Path)
+
+			switch mode := fi.Mode(); {
+			case mode.IsDir():
+				err := filepath.Walk(Path, func(path string, info os.FileInfo, err error) error {
+					logger.Debug().Msgf("sudoers file to watch: %v", path)
+					sudoersFiles = append(sudoersFiles, path)
+					return nil
+				})
+				if err != nil {
+					logger.Error().Err(err).Msgf("error walking dir: %v", Path)
+				}
+			case mode.IsRegular():
+				sudoersFiles = append(sudoersFiles, Path)
+			}
 		}
-		consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+		for _, sudoersFile := range sudoersFiles {
+			state := &pkg.SudoersState{
+				SudoersListener: pkg.NewSudoersListener(
+					pkg.SudoersFileOpt(fs, sudoersFile, c.logger()),
+				),
+			}
+			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+		}
 	}
-	logger := c.logger()
-	logger.Debug().Msgf("generic consumers: %v", c.Consumers.Generic)
 	if len(c.Consumers.Generic) > 0 {
 		genericFiles := c.genericConsumer(fs)
 		for _, genericFile := range genericFiles {
