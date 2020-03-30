@@ -1,0 +1,21 @@
+level = "info"
+database = "bpfink.db"
+bcc = ""
+
+
+[consumers]
+root = "e2e_tests"
+access = "demo-files/access.conf"
+
+[consumers.users]
+passwd = "demo-files/passwd"
+shadow = "demo-files/shadow"
+
+[MetricsConfig]
+graphiteHost = "127.0.0.1:3002"
+namespace = ""
+graphiteMode = "1" #1 = no logs 2 = stdout 3 = graphite server
+collectionInterval = "30s" # Seconds
+hostRolePath = "" # Path to file to identify server type
+hostRoleToken = ""
+hostRoleKey = "" # Key to look for in file
