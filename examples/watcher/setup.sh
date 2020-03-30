@@ -54,7 +54,7 @@ _config () {
 	echo "bcc = \"${PROJECT}/pkg/ebpf/vfs.o\"" >> bpfink.toml
 	echo "keyfile = \"\"" >> bpfink.toml
 	cat >> bpfink.toml <<- 'EOF'
-		level = "info"
+		level = "debug"
 		database = "bpfink.db"
 		[consumers]
 	EOF
