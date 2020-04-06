@@ -243,6 +243,16 @@ func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
 	case accessFilePath:
 		return true
 	default:
+		//Get file stat
+		fi, err := os.Stat(path)
+		if err != nil {
+			logger.Error().Err(err).Msgf("error getting file stat: %v", path)
+			return true
+		}
+		//If file is a socket, ignore it
+		if fi.Mode()&os.ModeSocket != 0 {
+			return true
+		}
 		return false
 	}
 }
