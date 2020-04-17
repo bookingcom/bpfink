@@ -278,7 +278,7 @@ func (gs *GenericState) Notify(cmd string) {
 	if gs.current.IsEmpty() {
 		gs.Warn().
 			Object("generic", LogGeneric(*gs)).
-			Str("path", gs.File).
+			Str("file", gs.File).
 			Str("processName", cmd).
 			Msg("generic file created")
 		return
@@ -286,14 +286,14 @@ func (gs *GenericState) Notify(cmd string) {
 	if gs.next.IsEmpty() {
 		gs.Warn().
 			Object("generic", LogGeneric(*gs)).
-			Str("path", gs.File).
+			Str("file", gs.File).
 			Str("processName", cmd).
 			Msg("generic file deleted")
 		return
 	}
 	gs.Warn().
 		Object("generic", LogGeneric(*gs)).
-		Str("path", gs.File).
+		Str("file", gs.File).
 		Str("processName", cmd).
 		Msg("generic file Modified")
 }
