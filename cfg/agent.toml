@@ -6,6 +6,7 @@ bcc = "pkg/ebpf/vfs.o"
 [consumers]
 root = "/"
 access = "/access.conf"
+generic = ["/etc"]
 
 [consumers.users]
 root = "/"

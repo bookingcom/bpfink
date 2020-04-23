@@ -17,10 +17,6 @@ There has been some research into monitoring mmap on files, so that events can b
 * `vma_link`
 * `sys_msync`
 * `fd_install`
-
-The next steps are around watching for files and dir to be created/delete under a given parent dir. Such that if we want to watch /etc, all files and sub dirs will we monitored for writes, including new files and dirs. 
-
-This will be achieved with about 4 different probes:  
 * `vfs_unlink`
 * `vfs_open`
 * `vfs_rmdir`

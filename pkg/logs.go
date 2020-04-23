@@ -17,6 +17,8 @@ type (
 	LogUser User
 	//LogAccess type wrapper
 	LogAccess Access
+	//LogGeneric type wrapper
+	LogGeneric GenericState
 )
 
 //MarshalZerologObject method to wrap a logger
@@ -61,4 +63,10 @@ func (lu LogUser) MarshalZerologObject(e *zerolog.Event) {
 func (la LogAccess) MarshalZerologObject(e *zerolog.Event) {
 	e.Strs("grant", la.Grant)
 	e.Strs("deny", la.Deny)
+}
+
+//MarshalZerologObject method to marshal access object
+func (lg LogGeneric) MarshalZerologObject(e *zerolog.Event) {
+	e.Hex("current", lg.current.Contents)
+	e.Hex("next", lg.next.Contents) //update to aes-gcm
 }
