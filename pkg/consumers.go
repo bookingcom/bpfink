@@ -44,9 +44,6 @@ func (bc *BaseConsumer) Init() error {
 	if err != nil {
 		return err
 	}
-	if !state.Created() && state.Changed() {
-		state.Notify("baseInit")
-	}
 	if err := bc.Save(bc.AgentDB); err != nil {
 		return err
 	}
