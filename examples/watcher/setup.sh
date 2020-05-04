@@ -55,7 +55,7 @@ _config () {
 	echo "root = \"/\"" >> bpfink.toml
 
 	echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >> bpfink.toml
-	echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\"]" >> bpfink.toml
+	echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\", \"/etc\"]" >> bpfink.toml
 	cat >> bpfink.toml <<- 'EOF'
 
 		[consumers.users]
@@ -147,7 +147,7 @@ run () {
 	clean
 	init
 	run_test&
-	sudo -E go run ${PROJECT}/cmd/main.go  --config ${PROJECT}/examples/watcher/test-dir/bpfink.toml
+	sudo go run ${PROJECT}/cmd/main.go  --config ${PROJECT}/examples/watcher/test-dir/bpfink.toml 
 	clean
 }
 
