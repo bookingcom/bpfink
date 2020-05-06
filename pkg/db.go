@@ -1,8 +1,8 @@
 package pkg
 
 import (
-	"github.com/boltdb/bolt"
 	"github.com/rs/zerolog"
+	bolt "go.etcd.io/bbolt"
 )
 
 type (

@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boltdb/bolt"
 	goMetrics "github.com/rcrowley/go-metrics"
 	"github.com/rs/zerolog"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	bolt "go.etcd.io/bbolt"
 
 	"github.com/bookingcom/bpfink/pkg"
 )

@@ -209,7 +209,7 @@ func (f *FIM) start() error {
 				e := rawEvent{}
 				err := binary.Read(bytes.NewBuffer(data), binary.LittleEndian, &e)
 				if err != nil {
-					f.Error().Msgf("failed to decode received data %q: %w", data, err)
+					f.Error().Msgf("failed to decode received data %q: %v", data, err)
 					continue
 				}
 				spath := ""
