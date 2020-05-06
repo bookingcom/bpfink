@@ -16,7 +16,7 @@ Technical overview
 
 __Main dependencies:__
 - [eBPF](https://github.com/iovisor/gobpf/) to handle kernel write events.
-- [boltdb](https://github.com/boltdb/bolt) for state persistence.
+- [boltdb](https://github.com/etcd-io/bbolt) for state persistence.
 - [graphite](https://graphiteapp.org/) optional to tracking installation, and number of events processed
 
 
