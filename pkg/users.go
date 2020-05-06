@@ -14,17 +14,17 @@ import (
 )
 
 type (
-	//User struct representing a user
+	// User struct representing a user
 	User struct {
 		Name     string
 		Password string
 		Keys     []string
 	}
 
-	//Users map of user objects
+	// Users map of user objects
 	Users map[string]*User
 
-	//UsersListener struct of listener for users
+	// UsersListener struct of listener for users
 	UsersListener struct {
 		afero.Fs
 		Shadow, Passwd string
@@ -42,7 +42,7 @@ type (
 	}
 )
 
-//Equal method to compare to users
+// Equal method to compare to users
 func (u1 *User) Equal(u2 *User) bool {
 	return u1.Name == u2.Name && u1.Password == u2.Password && ArrayEqual(u1.Keys, u2.Keys)
 }
@@ -64,7 +64,7 @@ func userDiff(old, new Users) (add, del Users) {
 	return
 }
 
-//NewUsersListener new function to create user listener
+// NewUsersListener new function to create user listener
 func NewUsersListener(options ...func(*UsersListener)) *UsersListener {
 	sl := &UsersListener{Logger: zerolog.Nop()}
 	for _, option := range options {
@@ -189,7 +189,7 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
-//Register method takes in list of files to monitor for writes
+// Register method takes in list of files to monitor for writes
 func (ul *UsersListener) Register(includes []string) (out []string) {
 	if base, ok := ul.Fs.(*afero.BasePathFs); ok {
 		for _, file := range includes {

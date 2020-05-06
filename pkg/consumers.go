@@ -10,24 +10,24 @@ import (
 )
 
 type (
-	//State describes the interface for maintaining state of instances for a consumer
+	// State describes the interface for maintaining state of instances for a consumer
 	State interface {
 		Changed() bool
 		Created() bool
 		Notify(string)
 		Teardown() error
 	}
-	//ParserLoader describes the interface for maintaining the data in a consumer
+	// ParserLoader describes the interface for maintaining the data in a consumer
 	ParserLoader interface {
 		Load(db *AgentDB) error
 		Save(db *AgentDB) error
 		Parse() (State, error)
 		Register() []string
 	}
-	//BaseConsumers is a type to describe multiple BaseConsumers
+	// BaseConsumers is a type to describe multiple BaseConsumers
 	BaseConsumers []*BaseConsumer
 
-	//BaseConsumer is a struct that contains the base objects needed to make a consumer
+	// BaseConsumer is a struct that contains the base objects needed to make a consumer
 	BaseConsumer struct {
 		*AgentDB
 		ParserLoader
@@ -35,7 +35,7 @@ type (
 	}
 )
 
-//Init function for populating a base consumer
+// Init function for populating a base consumer
 func (bc *BaseConsumer) Init() error {
 	if err := bc.Load(bc.AgentDB); err != nil {
 		return err
@@ -53,7 +53,7 @@ func (bc *BaseConsumer) Init() error {
 	return err
 }
 
-//Consume consumes an event
+// Consume consumes an event
 func (bc *BaseConsumer) Consume(e Event) error {
 	bc.Lock()
 	defer bc.Unlock()
@@ -71,7 +71,7 @@ func (bc *BaseConsumer) Consume(e Event) error {
 	return state.Teardown()
 }
 
-//Register method maps files to consumers.
+// Register method maps files to consumers.
 func (bc *BaseConsumer) Register() *sync.Map {
 	consumers := &sync.Map{}
 	for _, file := range bc.ParserLoader.Register() {
@@ -80,7 +80,7 @@ func (bc *BaseConsumer) Register() *sync.Map {
 	return consumers
 }
 
-//Consumers returns a slice of consumers.
+// Consumers returns a slice of consumers.
 func (bc BaseConsumers) Consumers() (consumers []Consumer) {
 	for _, consumer := range bc {
 		consumers = append(consumers, consumer)
@@ -95,14 +95,14 @@ type (
 		users    Users
 		includes []string
 	}
-	//UsersState struct keeps track of state changes based on UserListener struct and methods
+	// UsersState struct keeps track of state changes based on UserListener struct and methods
 	UsersState struct {
 		*UsersListener
 		current, next *usersState
 	}
 )
 
-//Parse calls parse(), and update new UserState
+// Parse calls parse(), and update new UserState
 func (us *UsersState) Parse() (State, error) {
 	users, includes, err := us.parse()
 	if err != nil {
@@ -112,16 +112,16 @@ func (us *UsersState) Parse() (State, error) {
 	return us, nil
 }
 
-//Changed checks if the new UserState instance is different from old UserState instance
+// Changed checks if the new UserState instance is different from old UserState instance
 func (us *UsersState) Changed() bool {
 	add, del := userDiff(us.current.users, us.next.users)
 	return len(add) != 0 || len(del) != 0
 }
 
-//Created checks if the current UserState has been created
+// Created checks if the current UserState has been created
 func (us *UsersState) Created() bool { return len(us.current.users) == 0 }
 
-//Notify is the method to notify of a change in state
+// Notify is the method to notify of a change in state
 func (us *UsersState) Notify(cmd string) {
 	add, del := userDiff(us.current.users, us.next.users)
 	us.Warn().
@@ -143,24 +143,24 @@ func (us *UsersState) reload() error {
 	return ErrReload
 }
 
-//Teardown is the reset method when a change has been detected. Set new state to old state, and reload.
+// Teardown is the reset method when a change has been detected. Set new state to old state, and reload.
 func (us *UsersState) Teardown() error {
 	us.current = us.next
 	return us.reload()
 }
 
-//Register returns a list of files to watch for changes
+// Register returns a list of files to watch for changes
 func (us *UsersState) Register() []string {
 	return us.UsersListener.Register(us.current.includes)
 }
 
-//Save commits a state to the local DB instance.
+// Save commits a state to the local DB instance.
 func (us *UsersState) Save(db *AgentDB) error {
 	us.Debug().Array("users", LogUsers(us.next.users)).Msg("save users")
 	return db.SaveUsers(us.next.users)
 }
 
-//Load reads in current state from local db instance
+// Load reads in current state from local db instance
 func (us *UsersState) Load(db *AgentDB) error {
 	users, err := db.LoadUsers()
 	if err != nil {
@@ -173,14 +173,14 @@ func (us *UsersState) Load(db *AgentDB) error {
 /* --------------------------------- ACCESS --------------------------------- */
 
 type (
-	//AccessState struct keeps track of state changes based on AccessListener struct and methods
+	// AccessState struct keeps track of state changes based on AccessListener struct and methods
 	AccessState struct {
 		*AccessListener
 		current, next Access
 	}
 )
 
-//Parse calls parse(), and update new AccessState
+// Parse calls parse(), and update new AccessState
 func (as *AccessState) Parse() (State, error) {
 	access, err := as.parse()
 	if err != nil {
@@ -190,16 +190,16 @@ func (as *AccessState) Parse() (State, error) {
 	return as, nil
 }
 
-//Changed checks if the new AccessState instance is different from old AccessState instance
+// Changed checks if the new AccessState instance is different from old AccessState instance
 func (as *AccessState) Changed() bool {
 	add, del := accessDiff(as.current, as.next)
 	return !add.IsEmpty() || !del.IsEmpty()
 }
 
-//Created checks if the current AccessState has been created
+// Created checks if the current AccessState has been created
 func (as *AccessState) Created() bool { return as.current.IsEmpty() }
 
-//Notify is the method to notify of a change in state
+// Notify is the method to notify of a change in state
 func (as *AccessState) Notify(cmd string) {
 	add, del := accessDiff(as.current, as.next)
 	as.Warn().
@@ -210,19 +210,19 @@ func (as *AccessState) Notify(cmd string) {
 		Msg("access entries")
 }
 
-//Teardown is the reset method when a change has been detected. Set new state to old state, and reload.
+// Teardown is the reset method when a change has been detected. Set new state to old state, and reload.
 func (as *AccessState) Teardown() error {
 	as.current = as.next
 	return nil
 }
 
-//Save commits a state to the local DB instance.
+// Save commits a state to the local DB instance.
 func (as *AccessState) Save(db *AgentDB) error {
 	as.Debug().Object("access", LogAccess(as.next)).Msg("save access")
 	return db.SaveAccess(as.next)
 }
 
-//Load reads in current state from local db instance
+// Load reads in current state from local db instance
 func (as *AccessState) Load(db *AgentDB) (err error) {
 	as.current, err = db.LoadAccess()
 	return
@@ -231,14 +231,14 @@ func (as *AccessState) Load(db *AgentDB) (err error) {
 /* --------------------------------- Generic --------------------------------- */
 
 type (
-	//GenericState struct keeps track of state changes based on GenericListener struct and methods
+	// GenericState struct keeps track of state changes based on GenericListener struct and methods
 	GenericState struct {
 		*GenericListener
 		current, next Generic
 	}
 )
 
-//Parse calls parse(), and update new UserState
+// Parse calls parse(), and update new UserState
 func (gs *GenericState) Parse() (State, error) {
 	gs.Debug().Msg("parsing generic file")
 
@@ -246,31 +246,30 @@ func (gs *GenericState) Parse() (State, error) {
 	case err == nil:
 		gs.next = generic
 		return gs, nil
-	case IsNotExist(err): //file deleted
+	case IsNotExist(err): // file deleted
 		return gs, nil
 	default:
 		return nil, err
 	}
 }
 
-//Changed checks if the new UserState instance is different from old UserState instance
+// Changed checks if the new UserState instance is different from old UserState instance
 func (gs *GenericState) Changed() bool {
 	if gs.next.IsEmpty() && !gs.current.IsEmpty() {
 		return true
 	}
 	gs.Debug().Msgf("A: %v VS B: %v", gs.current.Contents, gs.next.Contents)
 	res := bytes.Compare(gs.current.Contents, gs.next.Contents)
-	result := true
 	if res == 0 {
-		return !result
+		return false
 	}
-	return result
+	return true
 }
 
-//Created checks if the current UserState has been created
+// Created checks if the current UserState has been created
 func (gs *GenericState) Created() bool { return len(gs.current.Contents) == 0 }
 
-//Notify is the method to notify of a change in state
+// Notify is the method to notify of a change in state
 func (gs *GenericState) Notify(cmd string) {
 	if gs.current.IsEmpty() {
 		gs.Warn().
@@ -295,25 +294,25 @@ func (gs *GenericState) Notify(cmd string) {
 		Msg("generic file Modified")
 }
 
-//Teardown is the reset method when a change has been detected. Set new state to old state, and reload.
+// Teardown is the reset method when a change has been detected. Set new state to old state, and reload.
 func (gs *GenericState) Teardown() error {
 	gs.current = gs.next
 	gs.next = Generic{}
 	return nil
 }
 
-//Register returns a list of files to watch for changes
+// Register returns a list of files to watch for changes
 func (gs *GenericState) Register() []string {
 	return gs.GenericListener.Register()
 }
 
-//Save commits a state to the local DB instance.
+// Save commits a state to the local DB instance.
 func (gs *GenericState) Save(db *AgentDB) error {
 	gs.Debug().Object("generic", LogGeneric(*gs)).Msg("save generic file")
 	return db.SaveGeneric(gs.next)
 }
 
-//Load reads in current state from local db instance
+// Load reads in current state from local db instance
 func (gs *GenericState) Load(db *AgentDB) error {
 	generic, err := db.LoadGeneric()
 	if err != nil {
@@ -331,7 +330,7 @@ func (np nopConsumer) Consume(Event) error { return nil }
 
 /* ------------------------------ FILE MISSING ------------------------------ */
 
-//FileMissing struct is used when a watched file cannot be located
+// FileMissing struct is used when a watched file cannot be located
 type FileMissing struct {
 	File string
 	Consumer
@@ -340,9 +339,9 @@ type FileMissing struct {
 
 const pollingDuration = 10 * time.Second
 
-//NewFileMissing function watches for a file to be found, and adds the file to be monitored.
+// NewFileMissing function watches for a file to be found, and adds the file to be monitored.
 func NewFileMissing(events chan Event, options ...func(*FileMissing)) *FileMissing {
-	//NopConsumer is a fake consumer
+	// NopConsumer is a fake consumer
 	var NopConsumer = nopConsumer{}
 
 	fm := &FileMissing{File: "/dev/null", Consumer: NopConsumer, Logger: zerolog.Nop()}
@@ -366,7 +365,7 @@ func (fm *FileMissing) start(events chan Event) {
 	}
 }
 
-//Register method registers the newly found file to the correct consumer
+// Register method registers the newly found file to the correct consumer
 func (fm *FileMissing) Register() *sync.Map {
 	out := &sync.Map{}
 	out.Store(fm.File, fm)

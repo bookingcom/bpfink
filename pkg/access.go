@@ -10,11 +10,11 @@ import (
 )
 
 type (
-	//Access struct used to store changes to access.conf
+	// Access struct used to store changes to access.conf
 	Access struct {
 		Grant, Deny []string
 	}
-	//AccessListener struct used for filestream events.
+	// AccessListener struct used for filestream events.
 	AccessListener struct {
 		zerolog.Logger
 		afero.Fs
@@ -33,10 +33,10 @@ func accessDiff(old, new Access) (add, del Access) {
 	return
 }
 
-//IsEmpty method to check if diff is empty
+// IsEmpty method to check if diff is empty
 func (a Access) IsEmpty() bool { return len(a.Grant) == 0 && len(a.Deny) == 0 }
 
-//AccessFileOpt function used to return metadata on a file
+// AccessFileOpt function used to return metadata on a file
 func AccessFileOpt(fs afero.Fs, path string, logger zerolog.Logger) func(*AccessListener) {
 	return func(listener *AccessListener) {
 		listener.Fs = NewFile(func(file *File) {
@@ -47,7 +47,7 @@ func AccessFileOpt(fs afero.Fs, path string, logger zerolog.Logger) func(*Access
 	}
 }
 
-//NewAccessListener function to create a new file event listener
+// NewAccessListener function to create a new file event listener
 func NewAccessListener(options ...func(*AccessListener)) *AccessListener {
 	al := &AccessListener{Logger: zerolog.Nop()}
 	for _, option := range options {
@@ -88,7 +88,7 @@ func (al *accessListener) accessParse(fileName string) error {
 	return nil
 }
 
-//Register method returns list of paths to files to be watched
+// Register method returns list of paths to files to be watched
 func (al *AccessListener) Register() []string {
 	if base, ok := al.Fs.(*afero.BasePathFs); ok {
 		path, _ := base.RealPath(al.access)

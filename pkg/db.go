@@ -6,7 +6,7 @@ import (
 )
 
 type (
-	//AgentDB struct containing db connection
+	// AgentDB struct containing db connection
 	AgentDB struct {
 		zerolog.Logger
 		*bolt.DB
@@ -52,30 +52,30 @@ func (a *AgentDB) load(k string, v interface{}) error {
 	})
 }
 
-//SaveSudoers method to save a sudoer
+// SaveSudoers method to save a sudoer
 
-//SaveUsers method to save Users
+// SaveUsers method to save Users
 func (a *AgentDB) SaveUsers(users Users) error { return a.save(usersKey, users) }
 
-//SaveAccess method to save access config
+// SaveAccess method to save access config
 func (a *AgentDB) SaveAccess(access Access) error { return a.save(accessKey, access) }
 
-//SaveGeneric method to save generic files
+// SaveGeneric method to save generic files
 func (a *AgentDB) SaveGeneric(generic Generic) error { return a.save(genericKey, generic) }
 
-//LoadUsers method to load users
+// LoadUsers method to load users
 func (a *AgentDB) LoadUsers() (Users, error) {
 	users := Users{}
 	return users, a.load(usersKey, &users)
 }
 
-//LoadAccess method to load access
+// LoadAccess method to load access
 func (a *AgentDB) LoadAccess() (Access, error) {
 	access := Access{}
 	return access, a.load(accessKey, &access)
 }
 
-//LoadGeneric method to load access
+// LoadGeneric method to load access
 func (a *AgentDB) LoadGeneric() (Generic, error) {
 	generic := Generic{}
 	return generic, a.load(genericKey, &generic)

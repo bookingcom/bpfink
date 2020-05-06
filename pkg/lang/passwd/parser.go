@@ -18,7 +18,7 @@ const (
 	shell
 )
 
-//User struct that represents a user in passwd file
+// User struct that represents a user in passwd file
 type User struct {
 	Username string
 	Password string
@@ -29,14 +29,14 @@ type User struct {
 	Shell    string
 }
 
-//Parser struct to handle parsing of passwd file
+// Parser struct to handle parsing of passwd file
 type Parser struct {
 	zerolog.Logger
 	FileName string
 	Users    []User
 }
 
-//Parse func that parses a passwd file to collect users
+// Parse func that parses a passwd file to collect users
 func (p *Parser) Parse() error {
 	file, err := os.Open(p.FileName)
 	if err != nil {

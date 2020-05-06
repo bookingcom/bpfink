@@ -80,7 +80,7 @@ the current state in order to validate that everything is fine.
 }
 
 ```
-In this example, the user `nobody` was removed from gratted access. The current state of access is that user `John` has been granted.
+In this example, the user `nobody` was removed from granted access. The current state of access is that user `John` has been granted.
 while `root` and `ALL` were 
 
 ``` json

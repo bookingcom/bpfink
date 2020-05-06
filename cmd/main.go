@@ -22,7 +22,7 @@ import (
 )
 
 type (
-	//Configuration Struct for bpfink config
+	// Configuration Struct for bpfink config
 	Configuration struct {
 		Debug         bool
 		Level         string
@@ -49,7 +49,7 @@ type (
 			Generic []string
 		}
 	}
-	//GenericFile is the struct for watching generic file
+	// GenericFile is the struct for watching generic file
 	GenericFile struct {
 		File  string
 		IsDir bool
@@ -57,9 +57,9 @@ type (
 )
 
 const (
-	//DefaultConfigFile default config file location
+	// DefaultConfigFile default config file location
 	DefaultConfigFile = "/etc/bpfink.toml"
-	//DefaultDatabase default database file location
+	// DefaultDatabase default database file location
 	DefaultDatabase       = "/var/lib/bpfink.db"
 	puppetFileColumnCount = 2
 	keySize               = 16
@@ -113,6 +113,7 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 	if len(c.Consumers.Generic) > 0 {
 		genericFiles := c.genericConsumer(fs)
 		for _, genericFile := range genericFiles {
+			genericFile := genericFile
 			state := &pkg.GenericState{
 				GenericListener: pkg.NewGenericListener(func(l *pkg.GenericListener) {
 					l.File = genericFile.File
@@ -125,13 +126,14 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 		}
 	}
-	return
+	return consumers
 }
 
 func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
 	logger := c.logger()
-	genericFiles := []GenericFile{}
+	var genericFiles []GenericFile
 	for _, fullPath := range c.Consumers.Generic {
+		fullPath := fullPath
 		pkgFile := pkg.NewFile(func(file *pkg.File) {
 			file.Fs, file.Path, file.Logger = fs, fullPath, logger
 		})
@@ -146,10 +148,10 @@ func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
 		logger.Debug().Msgf("generic file to watch: %v", PathFull)
 		PathFull, fi := c.resolvePath(PathFull)
 		if PathFull == "" {
-			continue //could not resolve the file. skip for now.
+			continue // could not resolve the file. skip for now.
 		}
 		if c.checkIgnored(PathFull, fs) {
-			continue //skip ignored file
+			continue // skip ignored file
 		}
 		switch mode := fi.Mode(); {
 		case mode.IsDir():
@@ -157,11 +159,11 @@ func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
 			err := filepath.Walk(PathFull, func(path string, info os.FileInfo, err error) error {
 				walkPath, resolvedInfo := c.resolvePath(path)
 				if walkPath == "" {
-					return nil //path could not be resolved skip for now
+					return nil // path could not be resolved skip for now
 				}
 				isDir := resolvedInfo.IsDir()
 				if c.checkIgnored(walkPath, fs) {
-					return nil //skip for now
+					return nil // skip for now
 				}
 
 				logger.Debug().Msgf("Generic Path: %v", path)
@@ -182,25 +184,25 @@ func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
 	return genericFiles
 }
 
-func (c Configuration) resolvePath(PathFull string) (string, os.FileInfo) {
+func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 	logger := c.logger()
-	fi, err := os.Lstat(PathFull)
+	fi, err := os.Lstat(pathFull)
 	if err != nil {
-		logger.Error().Err(err).Msgf("error getting file stat: %v", PathFull)
+		logger.Error().Err(err).Msgf("error getting file stat: %v", pathFull)
 		return "", nil
 	}
 
 	logger.Debug().Msgf("is symlink: %v", fi.Mode()&os.ModeSymlink != 0)
 	if fi.Mode()&os.ModeSymlink != 0 {
-		linkPath, err := os.Readlink(PathFull)
+		linkPath, err := os.Readlink(pathFull)
 		if err != nil {
-			logger.Error().Err(err).Msgf("error reading link: %v", PathFull)
+			logger.Error().Err(err).Msgf("error reading link: %v", pathFull)
 			return "", nil
 		}
 		logger.Debug().Msgf("resolved link: %v", linkPath)
 
-		if len(linkPath) > 0 && string(linkPath[0]) != "/" { //dont resolve absolute paths
-			linkBasePath := filepath.Dir(PathFull)
+		if len(linkPath) > 0 && string(linkPath[0]) != "/" { // dont resolve absolute paths
+			linkBasePath := filepath.Dir(pathFull)
 			logger.Debug().Msgf("linkBasePath: %v", linkBasePath)
 			absLinkPath := filepath.Join(linkBasePath, linkPath)
 
@@ -214,12 +216,12 @@ func (c Configuration) resolvePath(PathFull string) (string, os.FileInfo) {
 			return "", nil
 		}
 		fi = fileInfo
-		PathFull = linkPath
+		pathFull = linkPath
 	}
 	logger.Debug().Msgf("isDir: %v", fi.IsDir())
 	if fi.Mode()&os.ModeIrregular == 0 || fi.Mode()&os.ModeDir == 0 {
 		logger.Debug().Msgf("isDir: %v", fi.IsDir())
-		return PathFull, fi
+		return pathFull, fi
 	}
 	return "", nil
 }
@@ -243,13 +245,13 @@ func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
 	case accessFilePath:
 		return true
 	default:
-		//Get file stat
+		// Get file stat
 		fi, err := os.Stat(path)
 		if err != nil {
 			logger.Error().Err(err).Msgf("error getting file stat: %v", path)
 			return true
 		}
-		//If file is a socket, ignore it
+		// If file is a socket, ignore it
 		if fi.Mode()&os.ModeSocket != 0 {
 			return true
 		}
@@ -274,7 +276,7 @@ func (c Configuration) metrics() (*pkg.Metrics, error) {
 
 	metrics.Hostname = hostname
 
-	//determine server Role name
+	// determine server Role name
 	if c.MetricsConfig.HostRolePath != "" {
 		file, err := os.Open(c.MetricsConfig.HostRolePath)
 		if err != nil {
@@ -327,7 +329,6 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
 		w.Logger, w.Consumers, w.FIM, w.Database, w.Key = logger, consumers.Consumers(), fim, database, c.key
 	}), nil
-
 }
 
 func initCmd(cmd *cobra.Command) {
@@ -383,7 +384,7 @@ func run() error {
 		metrics.GraphiteMode = viper.GetInt("graphite-mode")
 	}
 
-	//increment the host count by 1
+	// increment the host count by 1
 	metrics.RecordByInstalledHost()
 	err = metrics.RecordBPFMetrics()
 	if err != nil {
@@ -396,7 +397,7 @@ func run() error {
 		}
 		config.key = key
 	} else {
-		//readin keyfile
+		// readin keyfile
 		dat, err := ioutil.ReadFile(config.Keyfile)
 		if err != nil {
 			logger.Fatal().Err(err).Msg("Failed to read key file")
@@ -418,17 +419,14 @@ func run() error {
 func handleExit(watcher *pkg.Watcher) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
-	for {
-		select {
-		case <-sig:
-			watcher.Logger.Info().Msg("received a sigint")
-			err := watcher.Stop()
-			if err != nil {
-				watcher.Logger.Error().Err(err).Msgf("error cleaning up BPF Map: %v", err)
-			}
-			watcher.Logger.Debug().Msg("graceful shutdown complete")
-			os.Exit(0)
+	for range sig {
+		watcher.Logger.Info().Msg("received a sigint")
+		err := watcher.Stop()
+		if err != nil {
+			watcher.Logger.Error().Err(err).Msgf("error cleaning up BPF Map: %v", err)
 		}
+		watcher.Logger.Debug().Msg("graceful shutdown complete")
+		os.Exit(0)
 	}
 }
 
