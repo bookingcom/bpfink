@@ -273,6 +273,7 @@ func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
 		logger.Error().Msg("Could not type assert")
 		return false
 	}
+
 	passwdFilePath, _ := base.RealPath(c.Consumers.Users.Passwd)
 	shodowFilePath, _ := base.RealPath(c.Consumers.Users.Shadow)
 	accessFilePath, _ := base.RealPath(c.Consumers.Access)
