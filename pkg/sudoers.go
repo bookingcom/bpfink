@@ -65,14 +65,16 @@ func (sl *SudoersListener) parse() (Sudoers, error) {
 
 func (sl *sudoersListener) sudoersParse(fileName string) error {
 	sudoersData := sudoers.Parser{FileName: fileName, Logger: sl.Logger}
+	sl.Debug().Msg("parsing sudoers file")
 	err := sudoersData.Parse()
 	if err != nil {
 		return err
 	}
-	sl.Debug().Msg("parsing sudoers file")
+	/*
 	for _, sudoersdata := range sudoersData.Sudoers {
 		sl.Sudoers.Rule = append(sl.Sudoers.Rule, sudoersdata.User)
 	}
+	*/
 	return nil
 }
 

@@ -271,6 +271,7 @@ func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
 		logger.Error().Msg("Could not type assert")
 		return false
 	}
+
 	passwdFilePath, _ := base.RealPath(c.Consumers.Users.Passwd)
 	shodowFilePath, _ := base.RealPath(c.Consumers.Users.Shadow)
 	accessFilePath, _ := base.RealPath(c.Consumers.Access)
@@ -283,6 +284,15 @@ func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
 	case accessFilePath:
 		return true
 	default:
+		fi, err := os.Stat(path)
+		if err != nil {
+			logger.Error().Err(err).Msgf("error getting file stat: %v", path)
+			return true
+		}
+		//if file is a socket, ignore it
+		if fi.Mode()&os.ModeSocket != 0 {
+			return true
+		}
 		return false
 	}
 }
