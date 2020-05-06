@@ -1,5 +1,5 @@
-bpfink (BPF based FIM solution)
-==========================================
+bpfink (BPF based FIM solution) [![Build Status](https://github.com/bookingcom/bpfink/workflows/build/badge.svg)](https://github.com/bookingcom/bpfink/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/bookingcom/bpfink)](https://goreportcard.com/report/github.com/bookingcom/bpfink)
+===============================
 
 This program aim to track select files in order to detect changes and log the
 difference between the old and new version. The creation of this program is

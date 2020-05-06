@@ -260,10 +260,7 @@ func (gs *GenericState) Changed() bool {
 	}
 	gs.Debug().Msgf("A: %v VS B: %v", gs.current.Contents, gs.next.Contents)
 	res := bytes.Compare(gs.current.Contents, gs.next.Contents)
-	if res == 0 {
-		return false
-	}
-	return true
+	return res != 0
 }
 
 // Created checks if the current UserState has been created
