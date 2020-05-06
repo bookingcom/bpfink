@@ -67,7 +67,7 @@ different consumers for three different use cases:
 
 - User consumer, watch for the __/passwd__, __/shadow__ file to detect password changes
 (password hash is not logged to avoid offline brute force on leaked logs),
-it also watch for user home directory to detect ssh key injection.
+it also watches for user home directory to detect ssh key injection.
 - Access consumer, just watch __/access.conf__
 - Generic consumer, watches for any existing or new files/directories for any given parent directory
 
@@ -78,8 +78,8 @@ In parallel consumers are persisting their state in a key value store (currently
 Current status
 --------------
 
-This project is activily being developed, and is currently in a beta status. It is functional but things
-will be changing. We will be working on coming up with tasks, so that other can contrubute to the project.
+This project is actively being developed, and is currently in a beta status. It is functional but things
+will be changing. We will be working on coming up with tasks, so that other can contribute to the project.
 
 
 Contributions
@@ -90,7 +90,6 @@ We welcome all contributions, and hope to build a great product with a community
 ACKNOWLEDGMENT
 --------------
 
-This software was originally developed at Booking.com. With approval from Booking.com,
-this software was released as open source, for which the authors would like to express 
-their gratitude.
-
+This software was originally developed at [Booking.com](http://www.booking.com).
+With an approval from [Booking.com](http://www.booking.com), this software was released
+as Open Source, for which the authors would like to express their gratitude.

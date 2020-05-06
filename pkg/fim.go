@@ -28,7 +28,7 @@ const (
 )
 
 type (
-	//Event struct the represents event that is sent to user space from BPF
+	// Event struct the represents event that is sent to user space from BPF
 	Event struct {
 		Mode   int32
 		PID    uint32
@@ -49,7 +49,7 @@ type (
 		Com    [taskComLen]byte
 		Name   [dnameInlineLen]byte
 	}
-	//FIM struct that represents BPF event system
+	// FIM struct that represents BPF event system
 	FIM struct {
 		mapping    *sync.Map
 		reverse    *sync.Map
@@ -62,7 +62,7 @@ type (
 	}
 )
 
-//NewKey takes a path to file and generates a bpf map key
+// NewKey takes a path to file and generates a bpf map key
 func NewKey(name string) (uint64, error) {
 	fstat := &syscall.Stat_t{}
 	if err := syscall.Stat(name, fstat); err != nil {
@@ -71,14 +71,15 @@ func NewKey(name string) (uint64, error) {
 	return fstat.Ino, nil
 }
 
-//Encode takes in data, and encodes it for use in BPF
+// Encode takes in data, and encodes it for use in BPF
+// TODO: unused in current code
 func Encode(i interface{}) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, binary.LittleEndian, i)
 	return buf.Bytes(), err
 }
 
-//InitFIM function to initialize and start BPF
+// InitFIM function to initialize and start BPF
 func InitFIM(bccFile string, logger zerolog.Logger) (*FIM, error) {
 	mod := elf.NewModule(bccFile)
 
@@ -134,7 +135,7 @@ func InitFIM(bccFile string, logger zerolog.Logger) (*FIM, error) {
 	return fim, fim.start()
 }
 
-//Stats method to print status of code
+// Stats method to print status of code
 func (f *FIM) Stats() string {
 	count := 0
 	f.mapping.Range(func(key, value interface{}) bool {
@@ -145,7 +146,7 @@ func (f *FIM) Stats() string {
 	return fmt.Sprintf("Currently watching %d files", count)
 }
 
-//StopBPF method to clean up bpf after running
+// StopBPF method to clean up bpf after running
 func (f *FIM) StopBPF() error {
 	f.resultsMap.PollStop()
 	close(f.closeChannelLoops)
@@ -198,7 +199,6 @@ func (f *FIM) start() error {
 				f.Debug().Msg("chan Closed")
 				return
 			}
-
 		}
 	}()
 	go func() {
@@ -234,7 +234,7 @@ func (f *FIM) start() error {
 				// The BPF program is added the new dir inode into the look up map. So that events are not missed.
 				// By introducing a very small sleep and retry logic, we allow for all bpf events to be received before
 				// trying to process them. This accounts for the fact that events could be out of order.
-				if e.Mode == 3 { //dir creation
+				if e.Mode == 3 { // dir creation
 					time.Sleep(50 * time.Millisecond)
 					if _, ok := f.mapping.Load(e.Inode); !ok {
 						time.Sleep(10 * time.Millisecond)
@@ -254,15 +254,14 @@ func (f *FIM) start() error {
 					}
 					if end > 0 {
 						spath = string(e.Name[:end])
-						//todo build out fullpath/rel path.
+						// todo build out fullpath/rel path.
 					}
 				} else {
-
 					path, ok := f.mapping.Load(e.Inode)
 					if !ok {
 						f.Error().Msgf("could not find key: %v in map", e.Inode)
 						var (
-							pkey = (unsafe.Pointer(&e.Inode))
+							pkey = unsafe.Pointer(&e.Inode)
 						)
 						if err := f.Module.DeleteElement(f.RulesTable, pkey); err != nil {
 							f.Error().Err(err)
@@ -316,7 +315,7 @@ func (f *FIM) getCMDLine(e rawEvent) string {
 	return ""
 }
 
-//AddFile method to add a new file to BPF monitor
+// AddFile method to add a new file to BPF monitor
 func (f *FIM) AddFile(name string) error {
 	key, err := NewKey(name)
 	if err != nil {
@@ -335,7 +334,7 @@ func (f *FIM) AddFile(name string) error {
 	return nil
 }
 
-//RemoveFile method to remove a file from BPF monitor
+// RemoveFile method to remove a file from BPF monitor
 func (f *FIM) RemoveFile(name string) error {
 	rawKey, ok := f.reverse.Load(name)
 	if !ok {
@@ -350,7 +349,7 @@ func (f *FIM) RemoveFile(name string) error {
 		return err
 	}
 	var (
-		pkey = (unsafe.Pointer(&uintKey))
+		pkey = unsafe.Pointer(&uintKey)
 	)
 	if err := f.Module.DeleteElement(f.RulesTable, pkey); err != nil {
 		f.Error().Err(err)
@@ -367,9 +366,8 @@ func (f *FIM) RemoveFile(name string) error {
 	return nil
 }
 
-//AddInode method to add a new file to BPF monitor
+// AddInode method to add a new file to BPF monitor
 func (f *FIM) AddInode(key uint64, fileName string) error {
-
 	f.Debug().Str("file", fileName).Msgf("created/updated Key : %v", key)
 	value := 1
 	pkey, pvalue := unsafe.Pointer(&key), unsafe.Pointer(&value)
@@ -382,7 +380,7 @@ func (f *FIM) AddInode(key uint64, fileName string) error {
 	return nil
 }
 
-//RemoveInode method to remove a file from BPF monitor
+// RemoveInode method to remove a file from BPF monitor
 func (f *FIM) RemoveInode(key uint64) (string, error) {
 	rawName, ok := f.mapping.Load(key)
 	if !ok {
@@ -397,7 +395,7 @@ func (f *FIM) RemoveInode(key uint64) (string, error) {
 		return "", err
 	}
 	var (
-		pkey = (unsafe.Pointer(&key))
+		pkey = unsafe.Pointer(&key)
 	)
 
 	if err := f.Module.DeleteElement(f.RulesTable, pkey); err != nil {
@@ -411,7 +409,7 @@ func (f *FIM) RemoveInode(key uint64) (string, error) {
 	return name, nil
 }
 
-//GetFileFromInode look up filename for given inode
+// GetFileFromInode look up filename for given inode
 func (f *FIM) GetFileFromInode(key uint64) (string, error) {
 	rawName, ok := f.mapping.Load(key)
 	if !ok {

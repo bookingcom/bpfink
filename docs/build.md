@@ -13,7 +13,7 @@ in the future we may support JIT similar to how BCC works.
 Generally speaking if you install bcc and bcc works you should be able to compile bpflink
 [See how to install bcc](https://github.com/iovisor/bcc/blob/master/INSTALL.md)
 
-In the future we may add a build pipeline to build different version of the BPF program. 
+In the future we may add a build pipeline to build a different version of the BPF program. 
 
 ```bash
 cd bpfink

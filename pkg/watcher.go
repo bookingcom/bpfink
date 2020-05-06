@@ -11,7 +11,7 @@ import (
 )
 
 type (
-	//Watcher struct defines a watcher object
+	// Watcher struct defines a watcher object
 	Watcher struct {
 		zerolog.Logger
 		*FIM
@@ -21,24 +21,24 @@ type (
 		consumers     Consumers
 		CloseChannels chan struct{}
 	}
-	//Register defines register interface for a watcher
+	// Register defines register interface for a watcher
 	Register interface {
-		Register() *sync.Map //map[string]Consumer
+		Register() *sync.Map // map[string]Consumer
 	}
-	//Consumer interface describes a consumer for a watcher
+	// Consumer interface describes a consumer for a watcher
 	Consumer interface {
 		Consume(e Event) error
 		Register
 	}
-	//Consumers map of consumers
+	// Consumers map of consumers
 	Consumers struct {
 		zerolog.Logger
-		*sync.Map //map[string]Consumer
+		*sync.Map // map[string]Consumer
 	}
 )
 
 var (
-	//ErrReload var to define a reload of the consumer
+	// ErrReload var to define a reload of the consumer
 	ErrReload = fmt.Errorf("reload consumer")
 )
 
@@ -50,7 +50,7 @@ const (
 	delDir      = -2
 )
 
-//NewWatcher function to create new watcher function
+// NewWatcher function to create new watcher function
 func NewWatcher(options ...func(*Watcher)) *Watcher {
 	watcher := &Watcher{Logger: zerolog.Nop(), consumers: Consumers{zerolog.Nop(), &sync.Map{}}, CloseChannels: make(chan struct{}, 1)}
 	for _, option := range options {
@@ -65,7 +65,7 @@ func (c Consumers) get(file string) (Consumer, error) {
 		if ok {
 			consumer, ok := rawConsumer.(Consumer)
 			if !ok {
-				err := errors.New("Failed to assert consumer from consumer map")
+				err := errors.New("failed to assert consumer from consumer map")
 				c.Error().Err(err)
 				return nil, err
 			}
@@ -78,9 +78,8 @@ func (c Consumers) get(file string) (Consumer, error) {
 	}
 }
 
-//Files method to get list of files
+// Files method to get list of files
 func (c Consumers) Files() (files []string) {
-
 	c.Range(func(key, value interface{}) bool {
 		stringKey, ok := key.(string)
 		if !ok {
@@ -173,7 +172,7 @@ func (w *Watcher) removeInode(key uint64) {
 	w.consumers.Delete(file)
 }
 
-//Start method to start the watcher for the given consumers
+// Start method to start the watcher for the given consumers
 func (w *Watcher) Start() error {
 	defer func() {
 		if i := recover(); i != nil {
@@ -182,7 +181,6 @@ func (w *Watcher) Start() error {
 			if err := w.Start(); err != nil {
 				w.Error().Err(err)
 			}
-
 		}
 	}()
 	w.Debug().Msgf("consumer Count: %v", len(w.Consumers))
@@ -210,10 +208,10 @@ func (w *Watcher) Start() error {
 			case dirCreate:
 				w.addInode(&event, true)
 			case fileCreate:
-				file, err := w.GetFileFromInode(event.Device) //event triggers occasionally after file has been created.
+				file, err := w.GetFileFromInode(event.Device) // event triggers occasionally after file has been created.
 				if file == "" && err != nil {
 					w.addInode(&event, false)
-					event.Inode = event.Device //update so that event is processed correctly.
+					event.Inode = event.Device // update so that event is processed correctly.
 				} else {
 					continue
 				}
@@ -270,7 +268,7 @@ func (w *Watcher) Start() error {
 					w.Error().AnErr("error", err).Str("file", event.Path).Msg("consumer failed")
 				}
 
-				if err != ErrReload && event.Mode == renameEvent { //Rename event, reload consumer file, without consumer needed to worry about event types
+				if err != ErrReload && event.Mode == renameEvent { // Rename event, reload consumer file, without consumer needed to worry about event types
 					err = w.RemoveFile(event.Path)
 					if err != nil {
 						w.Error().Err(err)
@@ -292,7 +290,7 @@ func (w *Watcher) Start() error {
 	}
 }
 
-//Stop method to clean up anc gracefully exit the watcher and BPF
+// Stop method to clean up anc gracefully exit the watcher and BPF
 func (w *Watcher) Stop() error {
 	close(w.CloseChannels)
 	w.Logger.Debug().Msg("gracefully exiting BPF")

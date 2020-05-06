@@ -9,7 +9,7 @@ The current plan is to build out all Kernel `Major.Minor` versions of the ELF fi
 ### BPF program overview
 Right now the BPF program has two probes `vfs_write` and `vfs_rename`. The `vfs_write` probe covers most traditional file write events. When the probe is triggered, we read in `inode number` from the event. Using a hash map build out of inodes from files we want to monitor, we check to see if the inode number exists in the hashmap. If it does, we send an event to user space with a ring buffer map. 
 
-Some programs like passwd, want to write files atomically. One way to approach this is to write to a different file, and using the rename syscall. This allows for the temp file to become the real file in one atomic function call. In order to catch these types of events. The probe `vfs_rename` looks for old inode numbers in our hashmap. If the inode exists, we send an event to userspace via the ring buffer. Where the user space program reload the file into the hashmap. So that future changes can be monitored. 
+Some programs like passwd, want to write files atomically. One way to approach this is to write to a different file, and using rename syscall. This allows for the temp file to become the real file in one atomic function call. In order to catch these types of events. The probe `vfs_rename` looks for old inode numbers in our hashmap. If the inode exists, we send an event to userspace via the ring buffer. Where the user space program reload the file into the hashmap. So that future changes can be monitored. 
 
 
 ### Future plans

@@ -17,7 +17,7 @@ LLC = llc
 LLCFLAGS += -march=bpf -filetype=obj
 LDFLAGS ?= -w -s -X main.BuildDate=$(shell date +%F)
 CFLAGS ?= -O2
-CFLAGS += -emit-llvm -fno-stack-protector -D__KERNEL__ -D__BPF_TRACING__  
+CFLAGS += -emit-llvm -fno-stack-protector -D__KERNEL__ -D__BPF_TRACING__
 
 PREFIX ?= /usr
 NAME = bpfink
@@ -30,6 +30,7 @@ install: $(foreach library,$(LIBRARIES), $(PREFIX)/lib/$(NAME)/$(library))
 $(PREFIX)/lib/$(NAME)/%.o: %.o
 	install -p -D -m 0644 $< $@
 
+# TODO: %.c is unresolved prerequisite
 %.ll: %.c $(wildcard $(INCLUDE_DIR)/*)
 	$(CC) $(INCLUDES) $(CFLAGS) -c $< -o $@
 

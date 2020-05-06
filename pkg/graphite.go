@@ -17,7 +17,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-//Metrics struct defining configs for graphite metrics
+// Metrics struct defining configs for graphite metrics
 type Metrics struct {
 	GraphiteHost        string
 	Namespace           string
@@ -50,7 +50,7 @@ const (
 	pdoDentryOpen   = "pdo_dentry_open"
 )
 
-//Init method to start up graphite metrics
+// Init method to start up graphite metrics
 func (m *Metrics) Init() error {
 	m.missedCount = make(map[string]int64)
 	m.hitCount = make(map[string]int64)
@@ -74,7 +74,7 @@ func (m *Metrics) Init() error {
 	return nil
 }
 
-//RecordByInstalledHost graphite metric to show how manay host have bpfink installed
+// RecordByInstalledHost graphite metric to show how manay host have bpfink installed
 func (m *Metrics) RecordByInstalledHost() {
 	metricNameByHost := fmt.Sprintf("installed.by_host.%s.count.hourly", quote(m.Hostname))
 	goMetrics.GetOrRegisterGauge(metricNameByHost, m.EveryHourRegister).Update(int64(1))
@@ -84,11 +84,10 @@ func (m *Metrics) RecordByInstalledHost() {
 	}
 }
 
-//RecordBPFMetrics send metrics for BPF hits and misses per probe
+// RecordBPFMetrics send metrics for BPF hits and misses per probe
 func (m *Metrics) RecordBPFMetrics() error {
 	go func() {
 		for range time.Tick(m.MetricsInterval) {
-
 			BPFMetrics, err := m.fetchBPFMetrics()
 			if err != nil {
 				m.Logger.Error().Err(err).Msg("error fetching bpf metrics")
@@ -218,7 +217,7 @@ func quote(str string) string {
 			return -1
 		default:
 			underscorePrecedes = true
-			//maintain - in hostnames
+			// maintain - in hostnames
 			if string(r) == "-" {
 				return r
 			}

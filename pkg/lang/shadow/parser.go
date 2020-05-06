@@ -20,7 +20,7 @@ const (
 	reserved
 )
 
-//User struct that represents a user in shadow file
+// User struct that represents a user in shadow file
 type User struct {
 	Username   string
 	Password   string
@@ -33,14 +33,14 @@ type User struct {
 	Reserved   string
 }
 
-//Parser struct to handle parsing of shadow file
+// Parser struct to handle parsing of shadow file
 type Parser struct {
 	zerolog.Logger
 	FileName string
 	Users    []User
 }
 
-//Parse func that parses a shadow file to collect users
+// Parse func that parses a shadow file to collect users
 func (p *Parser) Parse() error {
 	file, err := os.Open(p.FileName)
 	if err != nil {
