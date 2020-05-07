@@ -8,7 +8,7 @@ install: $(PREFIX)/bin/$(BINARY)
 
 $(BINARY):
 	$(MAKE) -C pkg/ebpf
-	go build  -ldflags '$(LD_FLAGS)' -o $@ cmd/*.go
+	go build -ldflags '$(LD_FLAGS)' -o $@ cmd/*.go
 
 $(PREFIX)/bin/$(BINARY): $(BINARY)
 	install -p -D -m 0755 $< $@
