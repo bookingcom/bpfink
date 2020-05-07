@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/cyberdelia/go-metrics-graphite v0.0.0-20161219230853-39f87cc3b432
-	github.com/iovisor/gobpf v0.0.0-20200504095308-90dbbdfb1358
+	github.com/iovisor/gobpf v0.0.0-20191118065003-7c4bfe2c0457
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/rs/zerolog v1.18.0
 	github.com/spf13/afero v1.2.2
