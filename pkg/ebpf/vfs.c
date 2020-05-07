@@ -14,7 +14,7 @@ struct data_t {
     u32 uid;
     u32 sz;
     u64 inode;
-    u64 device; 
+    u64 device;
     char comm[TASK_COMM_LEN];
     char name[32];
 };
@@ -50,7 +50,7 @@ struct dentry_sm {
 	struct hlist_bl_node d_hash;	/* lookup hash list */
 	struct dentry *d_parent;	/* parent directory */
 	struct qstr d_name;
-	struct inode *d_inode;		
+	struct inode *d_inode;
 };
 #define PIN_GLOBAL_NS 2
 
@@ -82,13 +82,13 @@ int trace_write_entry(struct pt_regs *ctx){
         bpf_probe_read(&file, sizeof(file), (void *)PT_REGS_PARM1(ctx));
         if (!(file.f_op))
             return 0;
-        
+
         u64 inode_num;
         bpf_probe_read(&inode_num, sizeof(inode_num), &file.f_inode->i_ino);
         if (inode_num == 0) {
             return 0;
         }
-        
+
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &inode_num);
         if (rule_exists == 0) {
             return 0;
@@ -110,11 +110,11 @@ SEC("kprobe/vfs_rename")
 int trace_vfs_rename(struct pt_regs *ctx) {
     struct data_t data = {};
     if (bpf_get_current_comm(&data.comm, sizeof(data.comm)) == 0) {
-        
-        u64 oldInode = ({ 
-            typeof(dev_t) _val; 
-            __builtin_memset(&_val, 0, sizeof(_val));   
-            bpf_probe_read(&_val, sizeof(_val), (u64)&({ 
+
+        u64 oldInode = ({
+            typeof(dev_t) _val;
+            __builtin_memset(&_val, 0, sizeof(_val));
+            bpf_probe_read(&_val, sizeof(_val), (u64)&({
                 typeof(struct inode *) _val;
                 __builtin_memset(&_val, 0, sizeof(_val));
                 bpf_probe_read(&_val, sizeof(_val), (u64)&({
@@ -124,8 +124,8 @@ int trace_vfs_rename(struct pt_regs *ctx) {
                     _val;
                 })->d_inode);
                 _val;
-            })->i_ino); 
-            _val; 
+            })->i_ino);
+            _val;
         });
 
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &oldInode);
@@ -151,10 +151,10 @@ int trace_vfs_unlink(struct pt_regs *ctx) {
     struct data_t data = {};
     if (bpf_get_current_comm(&data.comm, sizeof(data.comm)) == 0) {
 
-        u64 oldInode = ({ 
-            typeof(dev_t) _val; 
-            __builtin_memset(&_val, 0, sizeof(_val));   
-            bpf_probe_read(&_val, sizeof(_val), (u64)&({ 
+        u64 oldInode = ({
+            typeof(dev_t) _val;
+            __builtin_memset(&_val, 0, sizeof(_val));
+            bpf_probe_read(&_val, sizeof(_val), (u64)&({
                 typeof(struct inode *) _val;
                 __builtin_memset(&_val, 0, sizeof(_val));
                 bpf_probe_read(&_val, sizeof(_val), (u64)&({
@@ -164,8 +164,8 @@ int trace_vfs_unlink(struct pt_regs *ctx) {
                     _val;
                 })->d_inode);
                 _val;
-            })->i_ino); 
-            _val; 
+            })->i_ino);
+            _val;
         });
 
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &oldInode);
@@ -192,10 +192,10 @@ int trace_vfs_rmdir(struct pt_regs *ctx) {
     struct data_t data = {};
     if (bpf_get_current_comm(&data.comm, sizeof(data.comm)) == 0) {
 
-        u64 inode_number = ({ 
-            typeof(dev_t) _val; 
-            __builtin_memset(&_val, 0, sizeof(_val));   
-            bpf_probe_read(&_val, sizeof(_val), (u64)&({ 
+        u64 inode_number = ({
+            typeof(dev_t) _val;
+            __builtin_memset(&_val, 0, sizeof(_val));
+            bpf_probe_read(&_val, sizeof(_val), (u64)&({
                 typeof(struct inode *) _val;
                 __builtin_memset(&_val, 0, sizeof(_val));
                 bpf_probe_read(&_val, sizeof(_val), (u64)&({
@@ -205,17 +205,17 @@ int trace_vfs_rmdir(struct pt_regs *ctx) {
                     _val;
                 })->d_inode);
                 _val;
-            })->i_ino); 
-            _val; 
+            })->i_ino);
+            _val;
         });
-        
+
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &inode_number);
         if (rule_exists == 0) {
             return 0;
         }
 
         u64 id = bpf_get_current_pid_tgid();
-        data.mode = -2; //constant defining rmdir, 
+        data.mode = -2; //constant defining rmdir,
         data.pid = id >> 32;
         data.uid = bpf_get_current_uid_gid();
         data.inode = inode_number;
@@ -230,13 +230,13 @@ SEC("kprobe/done_path_create") //mkdir
 int trace_done_path_create(struct pt_regs *ctx) {
     struct data_t data = {};
     if (bpf_get_current_comm(&data.comm, sizeof(data.comm)) == 0) {
-        u64 parent_inode_number = ({ 
-            typeof(dev_t) _val; 
-            __builtin_memset(&_val, 0, sizeof(_val));  
-            bpf_probe_read(&_val, sizeof(_val), (u64)&({ 
-                typeof(struct inode *) _val; 
-                __builtin_memset(&_val, 0, sizeof(_val)); 
-                bpf_probe_read(&_val, sizeof(_val), (u64)&({ 
+        u64 parent_inode_number = ({
+            typeof(dev_t) _val;
+            __builtin_memset(&_val, 0, sizeof(_val));
+            bpf_probe_read(&_val, sizeof(_val), (u64)&({
+                typeof(struct inode *) _val;
+                __builtin_memset(&_val, 0, sizeof(_val));
+                bpf_probe_read(&_val, sizeof(_val), (u64)&({
                     typeof(struct dentry *) _val;
                     __builtin_memset(&_val, 0, sizeof(_val));
                     bpf_probe_read(&_val, sizeof(_val), (u64)&({
@@ -246,10 +246,10 @@ int trace_done_path_create(struct pt_regs *ctx) {
                         _val;
                     })->dentry);
                     _val;
-                })->d_inode); 
-                _val; 
-            })->i_ino); 
-            _val; 
+                })->d_inode);
+                _val;
+            })->i_ino);
+            _val;
         });
 
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &parent_inode_number);
@@ -257,10 +257,10 @@ int trace_done_path_create(struct pt_regs *ctx) {
             return 0;
         }
 
-        u64 child_inode_number = ({ 
-            typeof(dev_t) _val; 
-            __builtin_memset(&_val, 0, sizeof(_val));   
-            bpf_probe_read(&_val, sizeof(_val), (u64)&({ 
+        u64 child_inode_number = ({
+            typeof(dev_t) _val;
+            __builtin_memset(&_val, 0, sizeof(_val));
+            bpf_probe_read(&_val, sizeof(_val), (u64)&({
                 typeof(struct inode *) _val;
                 __builtin_memset(&_val, 0, sizeof(_val));
                 bpf_probe_read(&_val, sizeof(_val), (u64)&({
@@ -270,22 +270,22 @@ int trace_done_path_create(struct pt_regs *ctx) {
                     _val;
                 })->d_inode);
                 _val;
-            })->i_ino); 
-            _val; 
+            })->i_ino);
+            _val;
         });
-        
+
         u64 flag = 0;
         u64 value = 2;
         bpf_map_update_elem(&rules, (void *)&child_inode_number, (void *)&value, flag);
 
          struct dentry_sm *d_child;
 
-        bpf_probe_read(&d_child, sizeof(d_child), &PT_REGS_PARM2(ctx)); 
-    
-        bpf_probe_read(&data.name, sizeof(data.name), &d_child->d_name.name+2); 
+        bpf_probe_read(&d_child, sizeof(d_child), &PT_REGS_PARM2(ctx));
+
+        bpf_probe_read(&data.name, sizeof(data.name), &d_child->d_name.name+2);
 
         u64 id = bpf_get_current_pid_tgid();
-        data.mode = 3; //constant defining mkdir, 
+        data.mode = 3; //constant defining mkdir,
         data.pid = id >> 32;
         data.uid = bpf_get_current_uid_gid();
         data.inode = parent_inode_number;
@@ -308,16 +308,16 @@ int trace_do_dentry_open(struct pt_regs *ctx) {
     if (bpf_get_current_comm(&data.comm, sizeof(data.comm)) == 0) {
 
         bpf_probe_read(&file, sizeof(file), (void *)PT_REGS_PARM1(ctx));
-        
+
         bpf_probe_read(&flags, sizeof(flags), &file.f_flags);
         if ( !(O_CREAT & flags)) { //get better at de duping this
             return 0;
         }
-    
-        parent_inode_number = ({ 
-            typeof(dev_t) _val; 
-            __builtin_memset(&_val, 0, sizeof(_val));   
-            bpf_probe_read(&_val, sizeof(_val), (u64)&({ 
+
+        parent_inode_number = ({
+            typeof(dev_t) _val;
+            __builtin_memset(&_val, 0, sizeof(_val));
+            bpf_probe_read(&_val, sizeof(_val), (u64)&({
                 typeof(struct inode *) _val;
                 __builtin_memset(&_val, 0, sizeof(_val));
                 bpf_probe_read(&_val, sizeof(_val), (u64)&({
@@ -327,8 +327,8 @@ int trace_do_dentry_open(struct pt_regs *ctx) {
                     _val;
                 })->d_inode);
                 _val;
-            })->i_ino); 
-            _val; 
+            })->i_ino);
+            _val;
         });
 
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &parent_inode_number);
@@ -339,13 +339,13 @@ int trace_do_dentry_open(struct pt_regs *ctx) {
         bpf_probe_read(&inode, sizeof(inode), (void *)PT_REGS_PARM2(ctx));
         inode_num = inode.i_ino;
 
-        bpf_probe_read(&data.name, sizeof(data.name),   &file.f_path.dentry->d_name.name+2); 
-        bpf_probe_read(&data.device, sizeof(data.device),  &file.f_path.dentry->d_name.len); 
-    
+        bpf_probe_read(&data.name, sizeof(data.name),   &file.f_path.dentry->d_name.name+2);
+        bpf_probe_read(&data.device, sizeof(data.device),  &file.f_path.dentry->d_name.len);
+
 
 
         u64 id = bpf_get_current_pid_tgid();
-        data.mode = 4; //constant defining create new file, 
+        data.mode = 4; //constant defining create new file,
         data.pid = id >> 32;
         data.uid = bpf_get_current_uid_gid();
         data.inode = parent_inode_number;
