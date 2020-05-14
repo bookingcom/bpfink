@@ -1,7 +1,10 @@
-package cmd
+package main
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/bookingcom/bpfink/pkg"
 )
@@ -14,36 +17,36 @@ type watcherTest struct {
 	fixture      string
 }
 
-func TestMain(t *testing.T) {
-	// cfg := Configuration{
+func Test_Main(t *testing.T) {
+	config, err := config()
+	require.NoError(t, err)
+	assert.NotNil(t, config)
 
-	// }
+	watcher, err := config.watcher()
+	assert.NoError(t, err)
 
-	// watcher, err := config.watcher()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	defer func(t *testing.T) {
+		err = watcher.Stop()
+		assert.NoError(t, err)
+	}(t)
+	go func(t *testing.T) {
+		err = watcher.Start()
+		assert.NoError(t, err)
+	}(t)
+	watcherTests := buildWatcherTests()
 
-	// defer func() {
-	// 	watcher.Stop()
-	// }()
-	// go watcher.start()
-
-	// watcherTests := buildWatcherTests()
-
-	// for _, tt := range watcherTests {
-	// 	t.Run(tt.name, func(t *testing.T) {
-
-	// 		watcher.Events <- tt.event
-	// 	})
-	// }
-	// watcher.Stop()
+	for _, tt := range watcherTests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			watcher.Events <- tt.event
+		})
+	}
 }
 
 func buildWatcherTests() []watcherTest {
 	watcherTests := []watcherTest{}
 
-	//test for adding to a new line to access.conf
+	// test for adding to a new line to access.conf
 	watcherTests = append(watcherTests, watcherTest{
 		name:         "add to access.conf",
 		action:       "append",
@@ -61,7 +64,7 @@ func buildWatcherTests() []watcherTest {
 		fixture: `{"level":"warn","access":{"grant":["john","nobody"],"deny":["root","ALL"]},"add":{"grant":["nobody"],"deny":[]},"del":{"grant":[],"deny":[]},"processName":"/bin/sh ./examples/watcher/setup.sh ","message":"access entries"}`,
 	})
 
-	//test for removing to a new line to access.conf
+	// test for removing to a new line to access.conf
 	watcherTests = append(watcherTests, watcherTest{
 		name:         "remove to access.conf",
 		action:       "remove",
@@ -79,7 +82,7 @@ func buildWatcherTests() []watcherTest {
 		fixture: `{"level":"warn","access":{"grant":["john"],"deny":["root","ALL"]},"add":{"grant":[],"deny":[]},"del":{"grant":["nobody"],"deny":[]},"processName":"sed","message":"access entries"}`,
 	})
 
-	//test for adding to a new line to shadow
+	// test for adding to a new line to shadow
 	watcherTests = append(watcherTests, watcherTest{
 		name:         "add user to shadow file",
 		action:       "append",
@@ -97,7 +100,7 @@ func buildWatcherTests() []watcherTest {
 		fixture: ``,
 	})
 
-	//test for adding to a new line to passwd
+	// test for adding to a new line to passwd
 	watcherTests = append(watcherTests, watcherTest{
 		name:         "add user to passwd file",
 		action:       "append",
@@ -115,7 +118,7 @@ func buildWatcherTests() []watcherTest {
 		fixture: `{"level":"warn","users":[{"user":"root","passwd":"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXDORm","keys":[]},{"user":"RealUser","passwd":"XXXXXXXword","keys":[]}],"add":[{"user":"RealUser","passwd":"XXXXXXXword","keys":[]}],"del":[],"processName":"/bin/sh ./examples/watcher/setup.sh ","message":"Users Modified"}`,
 	})
 
-	//test for adding to a new line to passwd
+	// test for adding to a new line to passwd
 	watcherTests = append(watcherTests, watcherTest{
 		name:         "add service user to passwd file",
 		action:       "append",
