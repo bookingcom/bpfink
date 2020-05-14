@@ -10,7 +10,6 @@ import (
 
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/blake2b"
-	_ "golang.org/x/crypto/blake2b" // BLAKE2b hash
 )
 
 // Parser struct to handle parsing access.conf
