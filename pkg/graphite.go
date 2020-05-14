@@ -79,7 +79,7 @@ func (m *Metrics) RecordByInstalledHost() {
 	metricNameByHost := fmt.Sprintf("installed.by_host.%s.count.hourly", quote(m.Hostname))
 	goMetrics.GetOrRegisterGauge(metricNameByHost, m.EveryHourRegister).Update(int64(1))
 	if m.RoleName != "" {
-		metricNameByRole := fmt.Sprintf("installed.by_role.%s.count.hourly", quote(m.RoleName))
+		metricNameByRole := fmt.Sprintf("installed.by_role.%s.%s.count.hourly", quote(m.RoleName), quote(m.Hostname))
 		goMetrics.GetOrRegisterGauge(metricNameByRole, m.EveryHourRegister).Update(int64(1))
 	}
 }
