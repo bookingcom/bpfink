@@ -77,3 +77,8 @@ func (lg LogGeneric) MarshalZerologObject(e *zerolog.Event) {
 func (ls LogSudoers) MarshalZerologObject(e *zerolog.Event) {
 	e.Strs("Sudoers", ls.Rule)
 }
+
+//MarshalZerologObject method to marshal access object
+func (ls LogSudoers) MarshalZerologObject(e *zerolog.Event) {
+	e.Strs("Sudoers", ls.Rule)
+}

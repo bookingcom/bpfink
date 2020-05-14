@@ -67,5 +67,6 @@ func (p *Parser) Parse() error {
 			Commands: strings.TrimSpace(entries[commands]),
 		})
 	}
+}
 	return nil
 }

@@ -63,7 +63,6 @@ _config () {
   echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >> bpfink.toml
   echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\"]" >> bpfink.toml
   echo "sudoers = \"${PROJECT}/examples/watcher/test-dir/bpfink.sudoers\"" >> bpfink.toml
-  cat >> bpfink.toml <<- 'EOF'
 
 		[consumers.users]
 	EOF
