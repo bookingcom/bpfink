@@ -13,8 +13,6 @@ const (
 	host
 	accounts
 	commands
-	defaults
-	defaultsSetting
 )
 
 //Sudoer struct that represents permission in the suoders file
@@ -62,20 +60,12 @@ func (p *Parser) Parse() error {
 		entries := strings.Fields(line)
 		p.Logger.Debug().Msgf(" Sudoers entries are %v", entries)
 
-		//Find the type of line we are parsing and parse appropriately
-		if strings.HasPrefix(line, "Defaults") {
-			p.SudoerDefaults = append(p.SudoerDefaults, SudoerDefaults{
-				Defaults: strings.TrimSpace(entries[defaults]),
-				DefaultsSetting: strings.TrimSpace(entries[defaultsSetting]),
-			})
-		} else {
 		p.Sudoers = append(p.Sudoers, Sudoer{
 			User: strings.TrimSpace(entries[user]),
 			Host: strings.TrimSpace(entries[host]),
 			Accounts: strings.TrimSpace(entries[accounts]),
 			Commands: strings.TrimSpace(entries[commands]),
 		})
-	}
 	}
 	return nil
 }

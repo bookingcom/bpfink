@@ -351,7 +351,6 @@ func (ss *SudoersState) Created() bool { return ss.current.IsEmpty() }
 func (ss *SudoersState) Notify(cmd string) {
 	add, del := sudoersDiff(ss.current, ss.next)
 	ss.Warn().
-		Object("sudoers", LogSudoers(ss.next)).
 		Object("add", LogSudoers(add)).
 		Object("del", LogSudoers(del)).
 		Str("processName", cmd).

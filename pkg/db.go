@@ -68,7 +68,6 @@ func (a *AgentDB) SaveGeneric(generic Generic) error { return a.save(genericKey,
 func (a *AgentDB) SaveSudoers(sudoers Sudoers) error { return a.save(sudoersKey, sudoers) }
 
 //LoadUsers method to load users
->>>>>>> 459a344... Initial commit: Adding consumer for sudoers
 func (a *AgentDB) LoadUsers() (Users, error) {
 	users := Users{}
 	return users, a.load(usersKey, &users)

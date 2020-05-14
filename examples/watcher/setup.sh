@@ -61,7 +61,7 @@ _config () {
   echo "root = \"/\"" >>bpfink.toml
 
   echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >> bpfink.toml
-  echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\", \"/etc\"]" >> bpfink.toml
+  echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\"]" >> bpfink.toml
   echo "sudoers = \"${PROJECT}/examples/watcher/test-dir/bpfink.sudoers\"" >> bpfink.toml
   cat >> bpfink.toml <<- 'EOF'
 
@@ -94,6 +94,7 @@ init() {
   _passwd
   _shadow
   _access
+  _sudoers
   _config
   make -r -C "${PROJECT}/pkg/ebpf" || exit
 }
@@ -154,7 +155,7 @@ run() {
   clean
   init
   run_test &
-  sudo go run "${PROJECT}"/cmd/main.go --config "${PROJECT}"/examples/watcher/test-dir/bpfink.toml
+  sudo -E go run "${PROJECT}"/cmd/main.go --config "${PROJECT}"/examples/watcher/test-dir/bpfink.toml
   clean
 }
 
