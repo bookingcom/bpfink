@@ -67,18 +67,13 @@ func (la LogAccess) MarshalZerologObject(e *zerolog.Event) {
 	e.Strs("deny", la.Deny)
 }
 
-// MarshalZerologObject method to marshal access object
+// MarshalZerologObject method to marshal generic object
 func (lg LogGeneric) MarshalZerologObject(e *zerolog.Event) {
 	e.Hex("current", lg.current.Contents)
 	e.Hex("next", lg.next.Contents) // update to aes-gcm
 }
 
-//MarshalZerologObject method to marshal access object
-func (ls LogSudoers) MarshalZerologObject(e *zerolog.Event) {
-	e.Strs("Sudoers", ls.Rule)
-}
-
-//MarshalZerologObject method to marshal access object
+//MarshalZerologObject method to marshal sudoers object
 func (ls LogSudoers) MarshalZerologObject(e *zerolog.Event) {
 	e.Strs("Sudoers", ls.Rule)
 }
