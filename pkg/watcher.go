@@ -43,7 +43,7 @@ var (
 )
 
 const (
-	renameEvent = 2
+	renameEvent = 0
 	dirCreate   = 3
 	fileCreate  = 4
 	delFile     = -1
