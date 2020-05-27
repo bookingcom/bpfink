@@ -30,24 +30,28 @@ const (
 type (
 	// Event struct the represents event that is sent to user space from BPF
 	Event struct {
-		Mode   int32
-		PID    uint32
-		UID    uint32
-		Size   uint32
-		Inode  uint64
-		Device uint64
-		Com    string
-		Path   string
+		Mode      int32
+		PID       uint32
+		UID       uint32
+		Size      uint32
+		Inode     uint64
+		Device    uint64
+		NewInode  uint64 // target directory when renaming
+		NewDevice uint64 // target file when renaming, 0 if doesn't exist
+		Com       string
+		Path      string
 	}
 	rawEvent struct {
-		Mode   int32
-		PID    uint32
-		UID    uint32
-		Size   uint32
-		Inode  uint64
-		Device uint64
-		Com    [taskComLen]byte
-		Name   [dnameInlineLen]byte
+		Mode      int32
+		PID       uint32
+		UID       uint32
+		Size      uint32
+		Inode     uint64
+		Device    uint64
+		NewInode  uint64 // target directory when renaming
+		NewDevice uint64 // target file when renaming, 0 if doesn't exist
+		Com       [taskComLen]byte
+		Name      [dnameInlineLen]byte
 	}
 	// FIM struct that represents BPF event system
 	FIM struct {
@@ -241,7 +245,7 @@ func (f *FIM) start() error {
 					}
 				}
 
-				if e.Mode == 4 || e.Mode == 3 {
+				if e.Mode == 4 || e.Mode == 3 || e.Mode == 0 {
 					f.Debug().Msgf("name: %v", e.Name)
 					f.Debug().Msgf("name: %v", string(e.Name[:len(e.Name)]))
 
@@ -275,7 +279,7 @@ func (f *FIM) start() error {
 					}
 				}
 				f.Events <- Event{
-					e.Mode, e.PID, e.UID, e.Size, e.Inode, e.Device,
+					e.Mode, e.PID, e.UID, e.Size, e.Inode, e.Device, e.NewInode, e.NewDevice,
 					cmdline,
 					spath,
 				}

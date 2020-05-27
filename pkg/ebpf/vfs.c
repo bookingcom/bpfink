@@ -15,6 +15,8 @@ struct data_t {
     u32 sz;
     u64 inode;
     u64 device;
+    u64 new_inode; // destination dir inode while renaming
+    u64 new_device; // destination file inode while renaming
     char comm[TASK_COMM_LEN];
     char name[32];
 };
@@ -109,7 +111,15 @@ int trace_write_entry(struct pt_regs *ctx){
 SEC("kprobe/vfs_rename")
 int trace_vfs_rename(struct pt_regs *ctx) {
     struct data_t data = {};
+    typeof(struct inode_sm) old_dir;
+    typeof(struct dentry *) old_dentry;
+    typeof(struct inode_sm) new_dir;
+    typeof(struct dentry *) new_dentry;
     if (bpf_get_current_comm(&data.comm, sizeof(data.comm)) == 0) {
+        bpf_probe_read(&old_dir, sizeof(old_dir), (void *)PT_REGS_PARM1(ctx));
+        bpf_probe_read(&old_dentry, sizeof(old_dentry), (u64)&PT_REGS_PARM2(ctx));
+        bpf_probe_read(&new_dir, sizeof(new_dir), (void *)PT_REGS_PARM3(ctx));
+        bpf_probe_read(&new_dentry, sizeof(new_dentry), (u64)&PT_REGS_PARM4(ctx));
 
         u64 oldInode = ({
             typeof(dev_t) _val;
@@ -117,27 +127,38 @@ int trace_vfs_rename(struct pt_regs *ctx) {
             bpf_probe_read(&_val, sizeof(_val), (u64)&({
                 typeof(struct inode *) _val;
                 __builtin_memset(&_val, 0, sizeof(_val));
-                bpf_probe_read(&_val, sizeof(_val), (u64)&({
-                    typeof(struct dentry *) _val;
-                    __builtin_memset(&_val, 0, sizeof(_val));
-                    bpf_probe_read(&_val, sizeof(_val), (u64)&PT_REGS_PARM4(ctx));
-                    _val;
-                })->d_inode);
+                bpf_probe_read(&_val, sizeof(_val), (u64)&old_dentry->d_inode);
                 _val;
             })->i_ino);
             _val;
         });
 
-        u64 *rule_exists = bpf_map_lookup_elem(&rules, &oldInode);
+        typeof(struct inode *) newInodePtr;
+        __builtin_memset(&newInodePtr, 0, sizeof(newInodePtr));
+        bpf_probe_read(&newInodePtr, sizeof(newInodePtr), (u64)&new_dentry->d_inode);
+
+        u64 newInode = 0;
+        if (newInodePtr != NULL) {
+            bpf_probe_read(&newInode, sizeof(newInode), (u64)&newInodePtr->i_ino);
+        }
+
+        // rule exists either if we are monitoring target directory or target file
+        u64 *rule_exists = newInode == 0 ? bpf_map_lookup_elem(&rules, &new_dir.i_ino)
+                                         : bpf_map_lookup_elem(&rules, &newInode);
         if (rule_exists == 0) {
             return 0;
         }
+
+        bpf_probe_read(&data.name, sizeof(data.name), &new_dentry->d_name.name+2);
 
         u64 id = bpf_get_current_pid_tgid();
         data.mode = 0; //constant defining rename, will clean up later
         data.pid = id >> 32;
         data.uid = bpf_get_current_uid_gid();
-        data.inode = oldInode;
+        data.inode = old_dir.i_ino;
+        data.device = oldInode;
+        data.new_inode = new_dir.i_ino;
+        data.new_device = newInode;
 
         u32 cpu = bpf_get_smp_processor_id();
         bpf_perf_event_output(ctx, &events, cpu, &data, sizeof(data));

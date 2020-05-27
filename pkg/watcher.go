@@ -215,6 +215,45 @@ func (w *Watcher) Start() error {
 				} else {
 					continue
 				}
+			case renameEvent:
+				// delete mapping and consumer of a source file if we have that
+				if sourcePath, _ := w.GetFileFromInode(event.Device); sourcePath != "" {
+					w.consumers.Delete(sourcePath)
+					w.reverse.Delete(sourcePath)
+				}
+
+				if event.NewDevice == 0 { // renaming to non-existing file
+					targetDir, err := w.GetFileFromInode(event.NewInode)
+					if err != nil {
+						w.Error().Msgf("can't find record for inode %d: %s", event.NewInode, err)
+						continue
+					}
+
+					targetPath := fmt.Sprintf("%v/%v", targetDir, event.Path)
+
+					w.mapping.Store(event.Device, targetPath)
+					w.reverse.Store(targetPath, event.Device)
+					event.Inode = event.NewInode // let's pretend we are creating a new one
+					w.addInode(&event, false)    // TODO: implicit - proper event.Path is assigned in that function
+				} else { // renaming to existing file
+					targetPath, err := w.GetFileFromInode(event.NewDevice)
+					if err != nil {
+						w.Error().Msgf("can't find record for inode %d: %s", event.NewDevice, err)
+						continue
+					}
+
+					w.mapping.Delete(event.NewDevice) // delete inode->name relation for old inode
+
+					// this function add ebpf rules for new inode but keeping consumer for old path
+					// that's exactly that we need
+					if err := w.AddFile(targetPath); err != nil {
+						w.Error().Msgf("can't update monitoring for renamed file %s", targetPath)
+					}
+					event.Path = targetPath
+				}
+
+				// TODO: future code depends on that strange assignment, need to decouple it
+				event.Inode = event.Device
 			}
 			w.Debug().Object("event", LogEvent(event)).Msg("event caught")
 			consumer, err := w.consumers.get(event.Path)
@@ -266,14 +305,6 @@ func (w *Watcher) Start() error {
 					})
 				default:
 					w.Error().AnErr("error", err).Str("file", event.Path).Msg("consumer failed")
-				}
-
-				if err != ErrReload && event.Mode == renameEvent { // Rename event, reload consumer file, without consumer needed to worry about event types
-					err = w.RemoveFile(event.Path)
-					if err != nil {
-						w.Error().Err(err)
-					}
-					w.add(event.Path, consumer)
 				}
 
 				switch event.Mode {
