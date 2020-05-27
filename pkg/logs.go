@@ -21,6 +21,8 @@ type (
 	LogGeneric GenericState
 	//LogSudoers type wrapper
 	LogSudoers Sudoers
+	//LogSudoer type wrapper
+	LogSudoer Sudoer
 )
 
 // MarshalZerologObject method to wrap a logger
@@ -73,7 +75,16 @@ func (lg LogGeneric) MarshalZerologObject(e *zerolog.Event) {
 	e.Hex("next", lg.next.Contents) // update to aes-gcm
 }
 
+// MarshalZerologArray method to marshal array
+func (ls LogSudoer) MarshalZerologArray(a *zerolog.Array) {
+	for _, sudo := range ls {
+		a.Object(LogSudoers(*sudo))
+	}
+}
+
 //MarshalZerologObject method to marshal sudoers object
 func (ls LogSudoers) MarshalZerologObject(e *zerolog.Event) {
-	e.Strs("Sudoers", ls.Rule)
+	e.Str("Type", ls.RuleType)
+	e.Str("Key", ls.RuleKey)
+	e.Strs("Value", ls.RuleValue)
 }

@@ -65,7 +65,7 @@ func (a *AgentDB) SaveAccess(access Access) error { return a.save(accessKey, acc
 func (a *AgentDB) SaveGeneric(generic Generic) error { return a.save(genericKey, generic) }
 
 //SaveSudoers method to save sudoers
-func (a *AgentDB) SaveSudoers(sudoers Sudoers) error { return a.save(sudoersKey, sudoers) }
+func (a *AgentDB) SaveSudoers(sudoers Sudoer) error { return a.save(sudoersKey, sudoers) }
 
 //LoadUsers method to load users
 func (a *AgentDB) LoadUsers() (Users, error) {
@@ -86,7 +86,7 @@ func (a *AgentDB) LoadGeneric() (Generic, error) {
 }
 
 //LoadUsers method to load users
-func (a *AgentDB) LoadSudoers() (Sudoers, error) {
-	sudoers := Sudoers{}
+func (a *AgentDB) LoadSudoers() (Sudoer, error) {
+	sudoers := Sudoer{}
 	return sudoers, a.load(sudoersKey, &sudoers)
 }

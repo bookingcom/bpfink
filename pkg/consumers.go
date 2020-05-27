@@ -324,7 +324,7 @@ type (
 	//SudoersState struct keeps track of state changes based on SudoersListener struct and methods
 	SudoersState struct {
 		*SudoersListener
-		current, next Sudoers
+		current, next Sudoer
 	}
 )
 
@@ -341,18 +341,18 @@ func (ss *SudoersState) Parse() (State, error) {
 //Changed checks if the new SudoersState instance is different from old SudoersState instance
 func (ss *SudoersState) Changed() bool {
 	add, del := sudoersDiff(ss.current, ss.next)
-	return !add.IsEmpty() || !del.IsEmpty()
+	return len(add) != 0 || len(del) != 0
 }
 
 //Created checks if the current SudoersState has been created
-func (ss *SudoersState) Created() bool { return ss.current.IsEmpty() }
+func (ss *SudoersState) Created() bool { return len(ss.current) == 0 }
 
 //Notify is the method to notify of a change in state
 func (ss *SudoersState) Notify(cmd string) {
 	add, del := sudoersDiff(ss.current, ss.next)
 	ss.Warn().
-		Object("add", LogSudoers(add)).
-		Object("del", LogSudoers(del)).
+		Array("add", LogSudoer(add)).
+		Array("del", LogSudoer(del)).
 		Str("processName", cmd).
 		Msg("Sudoers Modified")
 }
@@ -370,7 +370,7 @@ func (ss *SudoersState) Register() []string {
 
 //Save commits a state to the local DB instance.
 func (ss *SudoersState) Save(db *AgentDB) error {
-	ss.Debug().Object("sudoers", LogSudoers(ss.next)).Msg("Save sudoers file")
+	ss.Debug().Array("sudoers", LogSudoer(ss.next)).Msg("Save sudoers file")
 	return db.SaveSudoers(ss.next)
 }
 

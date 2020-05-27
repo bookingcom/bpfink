@@ -9,24 +9,16 @@ import (
 )
 
 const (
-	user = iota
-	host
-	accounts
-	commands
+	ruleType = iota
+	ruleKey
+	ruleValue
 )
 
 //Sudoer struct that represents permission in the suoders file
 type Sudoer struct {
-	User string
-	Host string
-	Accounts string
-	Commands string
-}
-
-//SudoerDefaults struct that represents a defaults line
-type SudoerDefaults struct {
-	Defaults string
-	DefaultsSetting string
+	RuleType string
+	RuleKey	string
+	RuleValue string
 }
 
 //Parser struct to handle parsing of sudoers file
@@ -34,7 +26,6 @@ type Parser struct {
 	zerolog.Logger
 	FileName string
 	Sudoers    []Sudoer 
-	SudoerDefaults	[]SudoerDefaults
 }
 
 //Parse func that parses a passwd file to collect users
@@ -57,15 +48,26 @@ func (p *Parser) Parse() error {
 		if len(line) <= 0 || string(line[0]) == "#" {
 			continue
 		}
-		entries := strings.Fields(line)
+		//entries := strings.Fields(line)
+		//entries := strings.Split(line, "=")
+
+		//Replace delimiters with space
+		replacer := strings.NewReplacer("=", " ", ":", " ", "+", " ")
+		replacedLine := replacer.Replace(line)
+		entries := strings.Fields(replacedLine)
+
 		p.Logger.Debug().Msgf(" Sudoers entries are %v", entries)
 
+		ruleValue := ""
+		ruleValue = strings.Join(entries[2:], "")
+
 		p.Sudoers = append(p.Sudoers, Sudoer{
-			User: strings.TrimSpace(entries[user]),
-			Host: strings.TrimSpace(entries[host]),
-			Accounts: strings.TrimSpace(entries[accounts]),
-			Commands: strings.TrimSpace(entries[commands]),
+			RuleType: strings.TrimSpace(entries[ruleType]),
+			RuleKey: strings.TrimSpace(entries[ruleKey]),
+			RuleValue: ruleValue,
 		})
+		p.Logger.Debug().Msgf(" Sudoers entries are %v", p.Sudoers)
+
 	}
 	return nil
 }
