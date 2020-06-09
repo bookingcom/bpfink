@@ -5,6 +5,7 @@
 #include <uapi/linux/ptrace.h>
 #include <linux/sched.h>
 #include <linux/fs.h>
+#include <linux/stat.h>
 
 #include "include/bpf_helpers.h"
 
@@ -85,13 +86,16 @@ int trace_write_entry(struct pt_regs *ctx){
         if (!(file.f_op))
             return 0;
 
-        u64 inode_num;
-        bpf_probe_read(&inode_num, sizeof(inode_num), &file.f_inode->i_ino);
-        if (inode_num == 0) {
+        struct inode_sm inode;
+
+        bpf_probe_read(&inode, sizeof(inode), file.f_inode);
+
+        // don't care about writes to non-ordinary files: sockets/devices/FIFOs
+        if (inode.i_ino == 0 || S_ISSOCK(inode.i_mode) || S_ISCHR(inode.i_mode) || S_ISBLK(inode.i_mode) || S_ISFIFO(inode.i_mode)) {
             return 0;
         }
 
-        u64 *rule_exists = bpf_map_lookup_elem(&rules, &inode_num);
+        u64 *rule_exists = bpf_map_lookup_elem(&rules, &inode.i_ino);
         if (rule_exists == 0) {
             return 0;
         }
@@ -100,7 +104,7 @@ int trace_write_entry(struct pt_regs *ctx){
         data.mode = 1; //constant defining write, will clean up later
         data.pid = id >> 32;
         data.uid = bpf_get_current_uid_gid();
-        data.inode = inode_num;
+        data.inode = inode.i_ino;
 
         u32 cpu = bpf_get_smp_processor_id();
         bpf_perf_event_output(ctx, &events, cpu, &data, sizeof(data));
