@@ -66,15 +66,6 @@ type (
 	}
 )
 
-// NewKey takes a path to file and generates a bpf map key
-func NewKey(name string) (uint64, error) {
-	fstat := &syscall.Stat_t{}
-	if err := syscall.Stat(name, fstat); err != nil {
-		return 0, err
-	}
-	return fstat.Ino, nil
-}
-
 // Encode takes in data, and encodes it for use in BPF
 // TODO: unused in current code
 func Encode(i interface{}) ([]byte, error) {
@@ -321,20 +312,20 @@ func (f *FIM) getCMDLine(e rawEvent) string {
 
 // AddFile method to add a new file to BPF monitor
 func (f *FIM) AddFile(name string) error {
-	key, err := NewKey(name)
-	if err != nil {
+	fstat := &syscall.Stat_t{}
+	if err := syscall.Stat(name, fstat); err != nil {
 		f.Error().Err(err).Msgf("Error stating file: %v", name)
 		return err
 	}
-	f.Debug().Str("file", name).Msgf("created/updated Key : %v", key)
-	value := 1
-	pkey, pvalue := unsafe.Pointer(&key), unsafe.Pointer(&value)
+
+	f.Debug().Str("file", name).Msgf("created/updated Key : %v", fstat.Ino)
+	pkey, pvalue := unsafe.Pointer(&fstat.Ino), unsafe.Pointer(&fstat.Dev)
 	f.Debug().Str("file", name).Msg("pushing to ebpf")
 	if err := f.Module.UpdateElement(f.RulesTable, pkey, pvalue, bpfAny); err != nil {
 		return err
 	}
-	f.mapping.Store(key, name)
-	f.reverse.Store(name, key)
+	f.mapping.Store(fstat.Ino, name)
+	f.reverse.Store(name, fstat.Ino)
 	return nil
 }
 
@@ -367,20 +358,6 @@ func (f *FIM) RemoveFile(name string) error {
 	f.mapping.Delete(id)
 	f.reverse.Delete(name)
 	f.Debug().Msgf("map key: %v, with value: %v", id, name)
-	return nil
-}
-
-// AddInode method to add a new file to BPF monitor
-func (f *FIM) AddInode(key uint64, fileName string) error {
-	f.Debug().Str("file", fileName).Msgf("created/updated Key : %v", key)
-	value := 1
-	pkey, pvalue := unsafe.Pointer(&key), unsafe.Pointer(&value)
-	f.Debug().Str("file", fileName).Msg("pushing to ebpf")
-	if err := f.Module.UpdateElement(f.RulesTable, pkey, pvalue, bpfAny); err != nil {
-		return err
-	}
-	f.mapping.Store(key, fileName)
-	f.reverse.Store(fileName, key)
 	return nil
 }
 

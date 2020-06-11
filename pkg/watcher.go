@@ -123,7 +123,7 @@ func (w *Watcher) addInode(event *Event, isdir bool) {
 		return
 	}
 	w.Debug().Msgf("File: %v found for inode", file)
-	fullPath := fmt.Sprintf("%v/%v", file, event.Path)
+	fullPath := path.Join(file, event.Path)
 	event.Path = fullPath
 
 	state := &GenericState{
@@ -139,7 +139,7 @@ func (w *Watcher) addInode(event *Event, isdir bool) {
 	w.Consumers = append(w.Consumers, consumer)
 	// consumer.Init()
 	w.Debug().Msgf("fullPath: %v", event.Path)
-	switch err := w.AddInode(event.Device, event.Path); {
+	switch err := w.AddFile(event.Path); {
 	case err == nil:
 		w.consumers.Store(event.Path, consumer)
 		w.Debug().Str("file", event.Path).Msgf("start watching")
@@ -300,7 +300,7 @@ func (w *Watcher) handleRenamingEvent(event *Event) error {
 			return err
 		}
 
-		targetPath := fmt.Sprintf("%v/%v", targetDir, event.Path)
+		targetPath := path.Join(targetDir, event.Path)
 
 		w.mapping.Store(event.Device, targetPath)
 		w.reverse.Store(targetPath, event.Device)
