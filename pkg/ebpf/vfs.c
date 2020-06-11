@@ -6,6 +6,8 @@
 #include <linux/sched.h>
 #include <linux/fs.h>
 #include <linux/stat.h>
+#include <linux/types.h>
+#include <linux/kdev_t.h>
 
 #include "include/bpf_helpers.h"
 
@@ -97,6 +99,20 @@ int trace_write_entry(struct pt_regs *ctx){
 
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &inode.i_ino);
         if (rule_exists == 0) {
+            return 0;
+        }
+
+        // file is uniquely identified by the (inode, dev) pair
+        // so far we catch a write event for the file with matched inode
+        // we need to verify dev id is also matched to be sure we catch the event for the right file
+        dev_t kdevice = 0;
+        bpf_probe_read(&kdevice, sizeof(kdevice), (u64)&inode.i_sb->s_dev);
+        
+        // transform device_id from the kernel-space format to the user-space format
+        u64 actualDeviceID = (u64)new_encode_dev(kdevice); 
+        u64 expectedDeviceID = *rule_exists;
+        
+        if (actualDeviceID != expectedDeviceID) {
             return 0;
         }
 
