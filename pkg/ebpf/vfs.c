@@ -378,7 +378,16 @@ int trace_do_dentry_open(struct pt_regs *ctx) {
         }
 
         bpf_probe_read(&inode, sizeof(inode), (void *)PT_REGS_PARM2(ctx));
-        inode_num = inode.i_ino;
+
+        dev_t kdevice = 0;
+        bpf_probe_read(&kdevice, sizeof(kdevice), (u64)&inode.i_sb->s_dev);
+
+        u64 actualDeviceID = (u64)new_encode_dev(kdevice);
+        u64 expectedDeviceID = *rule_exists;
+
+        if (actualDeviceID != expectedDeviceID) {
+            return 0;
+        }
 
         bpf_probe_read(&data.name, sizeof(data.name),   &file.f_path.dentry->d_name.name+2);
         bpf_probe_read(&data.device, sizeof(data.device),  &file.f_path.dentry->d_name.len);
@@ -390,7 +399,7 @@ int trace_do_dentry_open(struct pt_regs *ctx) {
         data.pid = id >> 32;
         data.uid = bpf_get_current_uid_gid();
         data.inode = parent_inode_number;
-        data.device = inode_num;
+        data.device = inode.i_ino;
         u32 cpu = bpf_get_smp_processor_id();
         bpf_perf_event_output(ctx, &events, cpu, &data, sizeof(data));
     }
