@@ -169,6 +169,18 @@ int trace_vfs_rename(struct pt_regs *ctx) {
             return 0;
         }
 
+        // check if the destination file or directory belongs to the same device as a
+        // monitored one
+        dev_t kdevice = 0;
+        bpf_probe_read(&kdevice, sizeof(kdevice), (u64)&new_dir.i_sb->s_dev);
+
+        u64 actualDeviceID = (u64)new_encode_dev(kdevice);
+        u64 expectedDeviceID = *rule_exists;
+
+        if (actualDeviceID != expectedDeviceID) {
+            return 0;
+        }
+
         bpf_probe_read(&data.name, sizeof(data.name), &new_dentry->d_name.name+2);
 
         u64 id = bpf_get_current_pid_tgid();
