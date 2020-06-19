@@ -46,7 +46,7 @@ type (
 			Users   struct {
 				Shadow, Passwd string
 			}
-			Generic []string
+			Generic  []string
 			Excludes []string
 		}
 	}
@@ -126,7 +126,6 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 		}
 	}
-
 	return consumers
 }
 

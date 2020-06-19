@@ -174,6 +174,7 @@ func (w *Watcher) removeInode(key uint64) {
 }
 
 // Start method to start the watcher for the given consumers
+// nolint:gocyclo // TODO: decompose this function
 func (w *Watcher) Start() error {
 	defer func() {
 		if i := recover(); i != nil {
