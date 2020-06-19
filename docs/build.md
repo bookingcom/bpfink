@@ -10,8 +10,8 @@ in the future we may support JIT similar to how BCC works.
 The recommended way of building eBPF library is using docker. Run following commands in root of this repository:
 
 ```bash
-docker build --tag bpfink-kernel . 
-docker run -v "$(pwd):/workspace" bpfink-kernel
+docker build --tag bpfink-library-build:dev . 
+docker run -v "$(pwd):/workspace" bpfink-library-build:dev
 ```
 
 This will regenerate `vfs-<kernel-version>.o` files in `pkg/ebpf/` directory using current state of code in `pkg/ebpf/vfs.c`.

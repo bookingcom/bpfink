@@ -1,0 +1,34 @@
+name: ebpf-library-build
+
+on:
+  push:
+    branches:
+    tags:
+    paths:
+      - '.github/workflows/ci-library-build.yml'
+      - 'pkg/ebpf/**'
+  pull_request:
+    paths:
+      - '.github/workflows/ci-library-build.yml'
+      - 'pkg/ebpf/**'
+
+jobs:
+  build-ebpf-library:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: docker login
+      run: docker login -u ${{ github.actor }} -p ${{ secrets.BPFINK_COMMIT_TOKEN }} docker.pkg.github.com
+    - name: docker pull
+      run: docker pull docker.pkg.github.com/bookingcom/bpfink/bpfink-library-build:latest
+    - name: build kernel-specific library
+      run: docker run -v "$(pwd):/workspace" docker.pkg.github.com/bookingcom/bpfink/bpfink-library-build:latest
+    - name: commit kernel-specific library
+      uses: github-actions-x/commit@v2.6
+      with:
+        github-token: ${{ secrets.BPFINK_COMMIT_TOKEN }}
+        commit-message: 'bump kernel-specific libraries'
+        rebase: true
+        files: pkg/ebpf
+        name: bpfink automatic commit
+        email: paskal.07@gmail.com
