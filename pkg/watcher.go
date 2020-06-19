@@ -20,6 +20,7 @@ type (
 		Consumers     []Consumer
 		consumers     Consumers
 		CloseChannels chan struct{}
+		Excludes      []string
 	}
 	// Register defines register interface for a watcher
 	Register interface {
@@ -191,6 +192,15 @@ func (w *Watcher) Start() error {
 				w.Error().Msg("error casting file string from register")
 				return false
 			}
+
+			// Exclude file from monitoring if it belongs to exclusion list
+			for _, excludeFile := range w.Excludes {
+				if strings.HasPrefix(stringFile, excludeFile) {
+					w.Debug().Msgf("File belongs to exclusion list, excluding from monitoring: %v", stringFile)
+					return false
+				}
+			}
+
 			w.Debug().Msgf("Adding File: %v", stringFile)
 			consumerValue, ok := value.(Consumer)
 			if !ok {

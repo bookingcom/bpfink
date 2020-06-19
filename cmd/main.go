@@ -47,6 +47,7 @@ type (
 				Shadow, Passwd string
 			}
 			Generic []string
+			Excludes []string
 		}
 	}
 	// GenericFile is the struct for watching generic file
@@ -109,7 +110,6 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 		}
 		consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 	}
-
 	if len(c.Consumers.Generic) > 0 {
 		genericFiles := c.genericConsumer(fs)
 		for _, genericFile := range genericFiles {
@@ -126,6 +126,7 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 		}
 	}
+
 	return consumers
 }
 
@@ -327,7 +328,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 		}
 	}
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
-		w.Logger, w.Consumers, w.FIM, w.Database, w.Key = logger, consumers.Consumers(), fim, database, c.key
+		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes
 	}), nil
 }
 
