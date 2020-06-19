@@ -93,7 +93,7 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 		fs = afero.NewBasePathFs(fs, c.Consumers.Root)
 	}
 	if c.Consumers.Access != "" {
-		if (!c.fileBelongsToExclusionList(c.Consumers.Access)) {
+		if !c.fileBelongsToExclusionList(c.Consumers.Access) {
 			state := &pkg.AccessState{
 				AccessListener: pkg.NewAccessListener(
 					pkg.AccessFileOpt(fs, c.Consumers.Access, c.logger()),
@@ -103,7 +103,7 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 		}
 	}
 	if c.Consumers.Users.Shadow != "" && c.Consumers.Users.Passwd != "" {
-		if (!c.fileBelongsToExclusionList(c.Consumers.Users.Shadow) || !c.fileBelongsToExclusionList(c.Consumers.Users.Passwd)) {
+		if !c.fileBelongsToExclusionList(c.Consumers.Users.Shadow) || !c.fileBelongsToExclusionList(c.Consumers.Users.Passwd) {
 			state := &pkg.UsersState{
 				UsersListener: pkg.NewUsersListener(func(l *pkg.UsersListener) {
 					l.Passwd = c.Consumers.Users.Passwd
@@ -117,7 +117,7 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 	if len(c.Consumers.Generic) > 0 {
 		genericFiles := c.genericConsumer(fs)
 		for _, genericFile := range genericFiles {
-			if (!c.fileBelongsToExclusionList(genericFile.File)) {
+			if !c.fileBelongsToExclusionList(genericFile.File) {
 				genericFile := genericFile
 				state := &pkg.GenericState{
 					GenericListener: pkg.NewGenericListener(func(l *pkg.GenericListener) {
@@ -136,8 +136,8 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 }
 
 /* 	Checks if file belongs to exclusion list
-	true: if file needs to be excluded and hence does not create consumer
-	false: otherwise
+true: if file needs to be excluded and hence does not create consumer
+false: otherwise
 */
 func (c Configuration) fileBelongsToExclusionList(file string) bool {
 	logger := c.logger()
