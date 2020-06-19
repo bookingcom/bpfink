@@ -46,7 +46,8 @@ type (
 			Users   struct {
 				Shadow, Passwd string
 			}
-			Generic []string
+			Generic  []string
+			Excludes []string
 		}
 	}
 	// GenericFile is the struct for watching generic file
@@ -92,41 +93,61 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 		fs = afero.NewBasePathFs(fs, c.Consumers.Root)
 	}
 	if c.Consumers.Access != "" {
-		state := &pkg.AccessState{
-			AccessListener: pkg.NewAccessListener(
-				pkg.AccessFileOpt(fs, c.Consumers.Access, c.logger()),
-			),
+		if !c.fileBelongsToExclusionList(c.Consumers.Access) {
+			state := &pkg.AccessState{
+				AccessListener: pkg.NewAccessListener(
+					pkg.AccessFileOpt(fs, c.Consumers.Access, c.logger()),
+				),
+			}
+			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 		}
-		consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 	}
 	if c.Consumers.Users.Shadow != "" && c.Consumers.Users.Passwd != "" {
-		state := &pkg.UsersState{
-			UsersListener: pkg.NewUsersListener(func(l *pkg.UsersListener) {
-				l.Passwd = c.Consumers.Users.Passwd
-				l.Shadow = c.Consumers.Users.Shadow
-				l.Fs, l.Logger = fs, c.logger()
-			}),
-		}
-		consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
-	}
-
-	if len(c.Consumers.Generic) > 0 {
-		genericFiles := c.genericConsumer(fs)
-		for _, genericFile := range genericFiles {
-			genericFile := genericFile
-			state := &pkg.GenericState{
-				GenericListener: pkg.NewGenericListener(func(l *pkg.GenericListener) {
-					l.File = genericFile.File
-					l.IsDir = genericFile.IsDir
-					l.Key = c.key
-					l.Fs = fs
-					l.Logger = c.logger()
+		if !c.fileBelongsToExclusionList(c.Consumers.Users.Shadow) || !c.fileBelongsToExclusionList(c.Consumers.Users.Passwd) {
+			state := &pkg.UsersState{
+				UsersListener: pkg.NewUsersListener(func(l *pkg.UsersListener) {
+					l.Passwd = c.Consumers.Users.Passwd
+					l.Shadow = c.Consumers.Users.Shadow
+					l.Fs, l.Logger = fs, c.logger()
 				}),
 			}
 			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 		}
 	}
+	if len(c.Consumers.Generic) > 0 {
+		genericFiles := c.genericConsumer(fs)
+		for _, genericFile := range genericFiles {
+			if !c.fileBelongsToExclusionList(genericFile.File) {
+				genericFile := genericFile
+				state := &pkg.GenericState{
+					GenericListener: pkg.NewGenericListener(func(l *pkg.GenericListener) {
+						l.File = genericFile.File
+						l.IsDir = genericFile.IsDir
+						l.Key = c.key
+						l.Fs = fs
+						l.Logger = c.logger()
+					}),
+				}
+				consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+			}
+		}
+	}
 	return consumers
+}
+
+/* 	Checks if file belongs to exclusion list
+true: if file needs to be excluded and hence does not create consumer
+false: otherwise
+*/
+func (c Configuration) fileBelongsToExclusionList(file string) bool {
+	logger := c.logger()
+	for _, excludeFile := range c.Consumers.Excludes {
+		if strings.HasPrefix(file, excludeFile) {
+			logger.Debug().Msgf("File belongs to exclusion list, excluding from monitoring: %v", file)
+			return true
+		}
+	}
+	return false
 }
 
 func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
@@ -327,7 +348,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 		}
 	}
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
-		w.Logger, w.Consumers, w.FIM, w.Database, w.Key = logger, consumers.Consumers(), fim, database, c.key
+		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes
 	}), nil
 }
 

@@ -56,6 +56,8 @@ _config() {
 
   echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >>bpfink.toml
   echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\", \"/etc\"]" >>bpfink.toml
+  echo "excludes = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher/exclude-dir\", \"${PROJECT}/examples/watcher/test-dir/excludeFile\"]" >>bpfink.toml
+
   cat >>bpfink.toml <<-'EOF'
 
 		[consumers.users]
@@ -83,7 +85,10 @@ init() {
   touch dynamic-watcher/dir-test/example.txt
   cd dynamic-watcher || exit
   ln -s dir-test/example.txt linked_text
+  mkdir exclude-dir
+  touch exclude-dir/testFile
   cd ..
+  touch excludeFile
   _passwd
   _shadow
   _access

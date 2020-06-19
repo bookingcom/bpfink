@@ -52,11 +52,10 @@ func NewGenericListener(options ...func(*GenericListener)) *GenericListener {
 
 func (gl *GenericListener) parse() (Generic, error) {
 	listener := &genericListener{Logger: gl.Logger}
-	gl.Debug().Msgf("parsing access: %v", gl.File)
 	if gl.IsDir {
 		return Generic{}, nil
 	}
-	gl.Debug().Msgf("parsing access: %v", gl.File)
+	gl.Debug().Msgf("parsing generic: %v", gl.File)
 	err := listener.genericParse(gl.File, gl.Key)
 	if err != nil {
 		return Generic{}, err
