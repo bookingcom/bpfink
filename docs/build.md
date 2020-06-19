@@ -5,7 +5,22 @@ right now building bpfink with eBPF is a multi step process.
 Run the following commands to package eBPF for each kernel major.minor version
 in the future we may support JIT similar to how BCC works. 
 
-### Dependencies
+### eBPF
+
+The recommended way of building eBPF library is using docker. Run following commands in root of this repository:
+
+```bash
+docker build --tag bpfink-kernel . 
+docker run -v "$(pwd):/workspace" bpfink-kernel
+```
+
+This will regenerate `vfs-<kernel-version>.o` files in `pkg/ebpf/` directory using current state of code in `pkg/ebpf/vfs.c`.
+
+If you need to build another version of the kernel, alter `Dockerfile` to install appropriate version of `kernel-devel`
+package and add its number to `scripts/build.sh`.
+
+#### Locally
+
 * LLVM
 * clang
 * kernel-devel
@@ -24,7 +39,7 @@ make -r -C "." -e KERNEL_RELEASE=<kernel_version>
 ```
 The list of supported kernel versions can be found by running the following command inside the container.
 
-`ls /lib/modules/`
+`ls /usr/src/kernels/`
 
 add the updated ELF files to the repo, and push to your branch.
 

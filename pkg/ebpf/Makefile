@@ -3,13 +3,13 @@ KERNEL_RELEASE ?= $(shell uname -r)
 INCLUDE_DIR = include
 
 INCLUDES =  -I $(INCLUDE_DIR)
-INCLUDES += -I /lib/modules/$(KERNEL_RELEASE)/build/arch/x86/include
-INCLUDES += -I /lib/modules/$(KERNEL_RELEASE)/build/arch/x86/include/generated
-INCLUDES += -I /lib/modules/$(KERNEL_RELEASE)/build/include
-INCLUDES += -I /lib/modules/$(KERNEL_RELEASE)/build/include/generated/uapi
-INCLUDES += -I /lib/modules/$(KERNEL_RELEASE)/build/arch/x86/include/uapi
-INCLUDES += -I /lib/modules/$(KERNEL_RELEASE)/build/include/uapi
-INCLUDES += -I /lib/modules/$(KERNEL_RELEASE)/build/arch/x86/include/asm/asm.h
+INCLUDES += -I /usr/src/kernels/$(KERNEL_RELEASE)/arch/x86/include
+INCLUDES += -I /usr/src/kernels/$(KERNEL_RELEASE)/arch/x86/include/generated
+INCLUDES += -I /usr/src/kernels/$(KERNEL_RELEASE)/include
+INCLUDES += -I /usr/src/kernels/$(KERNEL_RELEASE)/include/generated/uapi
+INCLUDES += -I /usr/src/kernels/$(KERNEL_RELEASE)/arch/x86/include/uapi
+INCLUDES += -I /usr/src/kernels/$(KERNEL_RELEASE)/include/uapi
+INCLUDES += -I /usr/src/kernels/$(KERNEL_RELEASE)/arch/x86/include/asm/asm.h
 
 MAKEFLAGS += -r
 CC = clang
