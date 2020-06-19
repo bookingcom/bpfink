@@ -4,7 +4,29 @@ on:
   push:
     branches:
     tags:
+    paths-ignore:
+      - '.github/workflows/ci-docker-build.yml'
+      - '.github/workflows/ci-library-build.yml'
+      - 'cfg/**'
+      - 'docs/**'
+      - 'examples/**'
+      - 'scripts/**'
+      - '*.md'
+      - 'Dockerfile'
+      - 'LICENSE'
+      - 'Makefile'
   pull_request:
+    paths-ignore:
+      - '.github/workflows/ci-docker-build.yml'
+      - '.github/workflows/ci-library-build.yml'
+      - 'cfg/**'
+      - 'docs/**'
+      - 'examples/**'
+      - 'scripts/**'
+      - '*.md'
+      - 'Dockerfile'
+      - 'LICENSE'
+      - 'Makefile'
 
 jobs:
   build:
