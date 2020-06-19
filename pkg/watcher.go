@@ -127,6 +127,14 @@ func (w *Watcher) addInode(event *Event, isdir bool) {
 	fullPath := path.Join(file, event.Path)
 	event.Path = fullPath
 
+	// Exclude file from monitoring if it belongs to exclusion list
+	for _, excludeFile := range w.Excludes {
+		if strings.HasPrefix(event.Path, excludeFile) {
+			w.Debug().Msgf("File belongs to exclusion list, excluding from monitoring: %v", event.Path)
+			return
+		}
+	}
+
 	state := &GenericState{
 		GenericListener: NewGenericListener(func(l *GenericListener) {
 			l.File = event.Path
@@ -192,14 +200,6 @@ func (w *Watcher) Start() error {
 			if !ok {
 				w.Error().Msg("error casting file string from register")
 				return false
-			}
-
-			// Exclude file from monitoring if it belongs to exclusion list
-			for _, excludeFile := range w.Excludes {
-				if strings.HasPrefix(stringFile, excludeFile) {
-					w.Debug().Msgf("File belongs to exclusion list, excluding from monitoring: %v", stringFile)
-					return false
-				}
 			}
 
 			w.Debug().Msgf("Adding File: %v", stringFile)
