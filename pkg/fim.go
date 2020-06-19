@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"syscall"
@@ -76,6 +77,20 @@ func Encode(i interface{}) ([]byte, error) {
 
 // InitFIM function to initialize and start BPF
 func InitFIM(bccFile string, logger zerolog.Logger) (*FIM, error) {
+	// 'rules' ebpf hashmap is stored as a special file at the /sys/fs/bpf/bpfink/globals/rules
+	// it turns out it is not cleaned up between different launches of a program, so it can lead
+	// to unexpected behaviour (some rules will be still present even if they are not relevant anymore)
+	// that can lead to:
+	// 		1) ebpf map overwhelming
+	//		2) triggering non-relevant events which were relevant from previous run
+	// so let's delete that file explicitly before start-up in order to recreate it from scratch
+	rulesEBPFMapPath := path.Join(elf.BPFFSPath, "bpfink", elf.BPFDirGlobals, rulesTableName)
+	if _, err := os.Stat(rulesEBPFMapPath); err == nil {
+		if err := os.Remove(rulesEBPFMapPath); err != nil {
+			logger.Error().Err(err).Msgf("unable to delete ebpf map from previous run at %s. unexpected behavior possible", rulesEBPFMapPath)
+		}
+	}
+
 	mod := elf.NewModule(bccFile)
 
 	err := mod.Load(nil)
