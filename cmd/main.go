@@ -178,6 +178,9 @@ func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
 		case mode.IsDir():
 			logger.Debug().Msg("Generic is dir")
 			err := filepath.Walk(PathFull, func(path string, info os.FileInfo, err error) error {
+				if c.checkIgnored(path, fs) {
+					return nil // skip for now
+				}
 				walkPath, resolvedInfo := c.resolvePath(path)
 				if walkPath == "" {
 					return nil // path could not be resolved skip for now
@@ -233,7 +236,7 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 
 		fileInfo, err := os.Stat(linkPath)
 		if err != nil {
-			logger.Error().Err(err).Msgf("error getting file stat for readLinked file: %v", linkPath)
+			logger.Error().Err(err).Msgf("error getting file stat for readLinked file: %v, %v", linkPath, pathFull)
 			return "", nil
 		}
 		fi = fileInfo
@@ -266,6 +269,10 @@ func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
 	case accessFilePath:
 		return true
 	default:
+		// If file belongs to exclusion list, ignore it
+		if c.fileBelongsToExclusionList(path) {
+			return true
+		}
 		// Get file stat
 		fi, err := os.Stat(path)
 		if err != nil {
