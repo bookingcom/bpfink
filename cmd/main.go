@@ -21,6 +21,8 @@ import (
 	"github.com/bookingcom/bpfink/pkg"
 )
 
+var BuildDate = "(development)" //nolint:gochecknoglobals
+
 type (
 	// Configuration Struct for bpfink config
 	Configuration struct {
@@ -440,6 +442,7 @@ func run() error {
 		return err
 	}
 
+	logger.Info().Msgf("bpfink initialized: version %s, consumers count: %d", BuildDate, len(watcher.Consumers))
 	go handleExit(watcher)
 	return watcher.Start()
 }
