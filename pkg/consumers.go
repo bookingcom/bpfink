@@ -3,6 +3,8 @@ package pkg
 import (
 	"bytes"
 	"os"
+	"os/user"
+	"strconv"
 	"sync"
 	"time"
 
@@ -14,7 +16,7 @@ type (
 	State interface {
 		Changed() bool
 		Created() bool
-		Notify(string)
+		Notify(string, string)
 		Teardown() error
 	}
 	// ParserLoader describes the interface for maintaining the data in a consumer
@@ -64,7 +66,15 @@ func (bc *BaseConsumer) Consume(e Event) error {
 	if !state.Changed() {
 		return state.Teardown()
 	}
-	state.Notify(e.Com)
+
+	userName := ""
+	if user, err := user.LookupId(strconv.FormatUint(uint64(e.UID), 10)); err != nil {
+		bc.Err(err).Msgf("can't find user by UID %d", e.UID)
+	} else {
+		userName = user.Username
+	}
+
+	state.Notify(e.Com, userName)
 	if err := bc.Save(bc.AgentDB); err != nil {
 		return err
 	}
@@ -122,13 +132,14 @@ func (us *UsersState) Changed() bool {
 func (us *UsersState) Created() bool { return len(us.current.users) == 0 }
 
 // Notify is the method to notify of a change in state
-func (us *UsersState) Notify(cmd string) {
+func (us *UsersState) Notify(cmd string, user string) {
 	add, del := userDiff(us.current.users, us.next.users)
 	us.Warn().
 		Array("users", LogUsers(us.next.users)).
 		Array("add", LogUsers(add)).
 		Array("del", LogUsers(del)).
 		Str("processName", cmd).
+		Str("user", user).
 		Msg("Users Modified")
 }
 
@@ -200,13 +211,14 @@ func (as *AccessState) Changed() bool {
 func (as *AccessState) Created() bool { return as.current.IsEmpty() }
 
 // Notify is the method to notify of a change in state
-func (as *AccessState) Notify(cmd string) {
+func (as *AccessState) Notify(cmd string, user string) {
 	add, del := accessDiff(as.current, as.next)
 	as.Warn().
 		Object("access", LogAccess(as.next)).
 		Object("add", LogAccess(add)).
 		Object("del", LogAccess(del)).
 		Str("processName", cmd).
+		Str("user", user).
 		Msg("access entries")
 }
 
@@ -267,12 +279,13 @@ func (gs *GenericState) Changed() bool {
 func (gs *GenericState) Created() bool { return len(gs.current.Contents) == 0 }
 
 // Notify is the method to notify of a change in state
-func (gs *GenericState) Notify(cmd string) {
+func (gs *GenericState) Notify(cmd string, user string) {
 	if gs.current.IsEmpty() {
 		gs.Warn().
 			Object("generic", LogGeneric(*gs)).
 			Str("file", gs.File).
 			Str("processName", cmd).
+			Str("user", user).
 			Msg("generic file created")
 		return
 	}
@@ -281,6 +294,7 @@ func (gs *GenericState) Notify(cmd string) {
 			Object("generic", LogGeneric(*gs)).
 			Str("file", gs.File).
 			Str("processName", cmd).
+			Str("user", user).
 			Msg("generic file deleted")
 		return
 	}
@@ -288,6 +302,7 @@ func (gs *GenericState) Notify(cmd string) {
 		Object("generic", LogGeneric(*gs)).
 		Str("file", gs.File).
 		Str("processName", cmd).
+		Str("user", user).
 		Msg("generic file Modified")
 }
 

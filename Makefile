@@ -6,6 +6,7 @@ all: build
 build: $(BINARY)
 install: $(PREFIX)/bin/$(BINARY)
 
+.PHONY: $(BINARY)
 $(BINARY):
 	$(MAKE) -r -C pkg/ebpf
 	go build -ldflags '$(LD_FLAGS)' -o $@ cmd/*.go
