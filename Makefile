@@ -7,12 +7,15 @@ build: $(BINARY)
 install: $(PREFIX)/bin/$(BINARY)
 
 $(BINARY):
-	$(MAKE) -C pkg/ebpf
+	$(MAKE) -r -C pkg/ebpf
 	go build -ldflags '$(LD_FLAGS)' -o $@ cmd/*.go
 
 $(PREFIX)/bin/$(BINARY): $(BINARY)
 	install -p -D -m 0755 $< $@
 	$(MAKE) -r -C pkg/ebpf install
+
+e2etests: $(BINARY)
+	@sudo -E go test -tags e2e -race ./e2etests --bpfink-bin '$(PWD)/$(BINARY)' --ebpf-obj '$(PWD)/pkg/ebpf/vfs.o'
 
 .PHONY: clean
 clean:
