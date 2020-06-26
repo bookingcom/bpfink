@@ -37,10 +37,10 @@ func SetUp(t *testing.T) *World {
 	}
 
 	bpfinkParams := BPFinkRunParameters{
-		BPFinkBinPath:      *executionParams.bpfinkBinPath,
-		BPFinkEbpfProgramm: *executionParams.ebpfObjPath,
-		TestRootDir:        filepath.Join(testRootDir),
-		GenericMonitoringDir:         filepath.Join(testRootDir, "root"),
+		BPFinkBinPath:        *executionParams.bpfinkBinPath,
+		BPFinkEbpfProgramm:   *executionParams.ebpfObjPath,
+		TestRootDir:          filepath.Join(testRootDir),
+		GenericMonitoringDir: filepath.Join(testRootDir, "root"),
 	}
 
 	bpfink := BPFinkRun(t, bpfinkParams)
