@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"strings"
 	"syscall"
@@ -35,6 +36,7 @@ type genericFileLogRecord struct {
 	File        string `json:"file"`
 	ProcessName string
 	Message     string `json:"message"`
+	User        string `json:"user"`
 }
 
 type Event struct {
@@ -195,6 +197,12 @@ func (instance *BPFinkInstance) ExpectGenericEvent(t *testing.T, e Event) {
 
 	if record.Message != e.Message {
 		t.Errorf("actual message record [%s] is not equal to expected [%s]", record.Message, e.Message)
+	}
+
+	if currentUser, err := user.Current(); err != nil {
+		t.Errorf("unable to get current user")
+	} else if record.User != currentUser.Username {
+		t.Errorf("actual user record [%s] is not equal to expected [%s]", record.User, currentUser.Username)
 	}
 }
 

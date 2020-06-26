@@ -119,7 +119,7 @@ int trace_write_entry(struct pt_regs *ctx){
         u64 id = bpf_get_current_pid_tgid();
         data.mode = 1; //constant defining write, will clean up later
         data.pid = id >> 32;
-        data.uid = bpf_get_current_uid_gid();
+        data.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
         data.inode = inode.i_ino;
 
         u32 cpu = bpf_get_smp_processor_id();
@@ -186,7 +186,7 @@ int trace_vfs_rename(struct pt_regs *ctx) {
         u64 id = bpf_get_current_pid_tgid();
         data.mode = 0; //constant defining rename, will clean up later
         data.pid = id >> 32;
-        data.uid = bpf_get_current_uid_gid();
+        data.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
         data.inode = old_dir.i_ino;
         data.device = oldInode;
         data.new_inode = new_dir.i_ino;
@@ -229,7 +229,7 @@ int trace_vfs_unlink(struct pt_regs *ctx) {
         u64 id = bpf_get_current_pid_tgid();
         data.mode = -1; //constant defining unlink, will clean up later
         data.pid = id >> 32;
-        data.uid = bpf_get_current_uid_gid();
+        data.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
         data.inode = oldInode;
 
         u32 cpu = bpf_get_smp_processor_id();
@@ -270,7 +270,7 @@ int trace_vfs_rmdir(struct pt_regs *ctx) {
         u64 id = bpf_get_current_pid_tgid();
         data.mode = -2; //constant defining rmdir,
         data.pid = id >> 32;
-        data.uid = bpf_get_current_uid_gid();
+        data.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
         data.inode = inode_number;
 
         u32 cpu = bpf_get_smp_processor_id();
@@ -340,7 +340,7 @@ int trace_done_path_create(struct pt_regs *ctx) {
         u64 id = bpf_get_current_pid_tgid();
         data.mode = 3; //constant defining mkdir,
         data.pid = id >> 32;
-        data.uid = bpf_get_current_uid_gid();
+        data.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
         data.inode = parent_inode_number;
         data.device = child_inode_number;
         u32 cpu = bpf_get_smp_processor_id();
@@ -409,7 +409,7 @@ int trace_do_dentry_open(struct pt_regs *ctx) {
         u64 id = bpf_get_current_pid_tgid();
         data.mode = 4; //constant defining create new file,
         data.pid = id >> 32;
-        data.uid = bpf_get_current_uid_gid();
+        data.uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
         data.inode = parent_inode_number;
         data.device = inode.i_ino;
         u32 cpu = bpf_get_smp_processor_id();
