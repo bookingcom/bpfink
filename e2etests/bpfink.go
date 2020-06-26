@@ -2,6 +2,7 @@ package e2etests
 
 import (
 	"bufio"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path"
@@ -19,9 +20,26 @@ type BPFinkInstance struct {
 }
 
 type BPFinkRunParameters struct {
-	BPFinkBinPath      string
-	BPFinkEbpfProgramm string
-	SandboxDir         string
+	BPFinkBinPath        string
+	BPFinkEbpfProgramm   string
+	TestRootDir          string
+	GenericMonitoringDir string
+}
+
+type genericFileLogRecord struct {
+	Level   string
+	Generic struct {
+		Current string
+		Next    string
+	}
+	File        string `json:"file"`
+	ProcessName string
+	Message     string `json:"message"`
+}
+
+type Event struct {
+	File    string
+	Message string
 }
 
 type ProcessHealth int
@@ -32,19 +50,19 @@ const (
 	HEALTHY
 )
 
-func generateConfig(t *testing.T, rootDir string, ebpfProgrammPath string) string {
+func generateConfig(t *testing.T, testRootDir, genericDir string, ebpfProgrammPath string) string {
 	tmplt := strings.TrimSpace(`
 level = "info"
-database = "{{.Root}}/bpfink.db"
+database = "{{.TestRootDir}}/bpfink.db"
 bcc = "{{.EBPfProgrammPath}}"
 
 
 [consumers]
 root = "/"
-generic = ["{{.Root}}"]
+generic = ["{{.GenericMonitoringDir}}"]
 `)
 
-	outConfigPath := path.Join(rootDir, "agent.toml")
+	outConfigPath := path.Join(testRootDir, "agent.toml")
 	configFile, err := os.Create(outConfigPath)
 	if err != nil {
 		t.Fatalf("failed to create config file %s: %s", outConfigPath, err)
@@ -52,9 +70,10 @@ generic = ["{{.Root}}"]
 
 	tmpl := template.Must(template.New("config").Parse(tmplt))
 	err = tmpl.Execute(configFile, struct {
-		Root             string
-		EBPfProgrammPath string
-	}{rootDir, ebpfProgrammPath})
+		TestRootDir          string
+		GenericMonitoringDir string
+		EBPfProgrammPath     string
+	}{testRootDir, genericDir, ebpfProgrammPath})
 
 	if err != nil {
 		t.Fatalf("failed to generate config file %s: %s", outConfigPath, err)
@@ -72,7 +91,7 @@ func BPFinkRun(t *testing.T, params BPFinkRunParameters) *BPFinkInstance {
 		t.Fatal("bpfink ebpf programm ABSOLUTE path not specified, specify it through ebpf-obj arg")
 	}
 
-	stdErrLogPath := path.Join(params.SandboxDir, "stderr.log")
+	stdErrLogPath := path.Join(params.TestRootDir, "stderr.log")
 	stdErrFile, err := os.OpenFile(stdErrLogPath, os.O_CREATE|os.O_RDWR|os.O_SYNC, 0666)
 	if err != nil {
 		t.Fatalf("can't init stderr log file %s: %s", stdErrLogPath, err)
@@ -82,11 +101,15 @@ func BPFinkRun(t *testing.T, params BPFinkRunParameters) *BPFinkInstance {
 		t: t,
 	}
 
-	if err := os.MkdirAll(params.SandboxDir, 0700); err != nil {
-		t.Fatalf("can't create sandbox dir %s for bpfink: %s", params.SandboxDir, err)
+	if err := os.MkdirAll(params.TestRootDir, 0700); err != nil {
+		t.Fatalf("can't create sandbox dir %s for bpfink: %s", params.TestRootDir, err)
 	}
 
-	configPath := generateConfig(t, params.SandboxDir, params.BPFinkEbpfProgramm)
+	if err = os.Mkdir(params.GenericMonitoringDir, 0666); err != nil {
+		t.Fatalf("unable to create dir for generic monitoring: %s", err)
+	}
+
+	configPath := generateConfig(t, params.TestRootDir, params.GenericMonitoringDir, params.BPFinkEbpfProgramm)
 
 	instance.cmd = exec.Command( //nolint:gosec
 		params.BPFinkBinPath,
@@ -145,6 +168,34 @@ func (instance *BPFinkInstance) CheckIsHealthy(t *testing.T) ProcessHealth {
 	}
 
 	return WAITING
+}
+
+func (instance *BPFinkInstance) ExpectGenericEvent(t *testing.T, e Event) {
+	// give the event time to happen (file sync)
+	time.Sleep(10 * time.Millisecond)
+	line, err := instance.stdErr.ReadString('\n')
+	if err != nil {
+		t.Errorf("unable to read line from the file: %s", err)
+		return
+	}
+
+	var record genericFileLogRecord
+	if err = json.Unmarshal([]byte(line), &record); err != nil {
+		t.Errorf("unable to parse line [%s] as generic file log record: %s", line, err)
+		return
+	}
+
+	if record.Level != "warn" {
+		t.Errorf("actual record type [%s] is not equal to expected [info]", record.Level)
+	}
+
+	if record.File != e.File {
+		t.Errorf("actual file record [%s] is not equal to expected [%s]", record.File, e.File)
+	}
+
+	if record.Message != e.Message {
+		t.Errorf("actual message record [%s] is not equal to expected [%s]", record.Message, e.Message)
+	}
 }
 
 func (instance *BPFinkInstance) Shutdown() {

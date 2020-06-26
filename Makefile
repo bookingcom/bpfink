@@ -14,6 +14,7 @@ $(PREFIX)/bin/$(BINARY): $(BINARY)
 	install -p -D -m 0755 $< $@
 	$(MAKE) -r -C pkg/ebpf install
 
+.PHONY: e2etests
 e2etests: $(BINARY)
 	@sudo -E go test -tags e2e -race ./e2etests --bpfink-bin '$(PWD)/$(BINARY)' --ebpf-obj '$(PWD)/pkg/ebpf/vfs.o'
 
