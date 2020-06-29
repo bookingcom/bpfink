@@ -2,9 +2,9 @@ package pkg
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/user"
-	"strconv"
 	"sync"
 	"time"
 
@@ -67,9 +67,13 @@ func (bc *BaseConsumer) Consume(e Event) error {
 		return state.Teardown()
 	}
 
-	userName := ""
-	if user, err := user.LookupId(strconv.FormatUint(uint64(e.UID), 10)); err != nil {
+	var (
+		userName = ""
+		userID   = fmt.Sprintf("%d", e.UID)
+	)
+	if user, err := user.LookupId(userID); err != nil {
 		bc.Err(err).Msgf("can't find user by UID %d", e.UID)
+		userName = userID
 	} else {
 		userName = user.Username
 	}
