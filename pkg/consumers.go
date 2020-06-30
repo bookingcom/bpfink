@@ -2,9 +2,9 @@ package pkg
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/user"
-	"strconv"
 	"sync"
 	"time"
 
@@ -67,14 +67,14 @@ func (bc *BaseConsumer) Consume(e Event) error {
 		return state.Teardown()
 	}
 
-	userName := ""
-	if user, err := user.LookupId(strconv.FormatUint(uint64(e.UID), 10)); err != nil {
+	userID := fmt.Sprintf("%d", e.UID)
+	if user, err := user.LookupId(userID); err != nil {
 		bc.Err(err).Msgf("can't find user by UID %d", e.UID)
+		state.Notify(e.Com, userID)
 	} else {
-		userName = user.Username
+		state.Notify(e.Com, user.Username)
 	}
 
-	state.Notify(e.Com, userName)
 	if err := bc.Save(bc.AgentDB); err != nil {
 		return err
 	}
