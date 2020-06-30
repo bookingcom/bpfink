@@ -21,6 +21,7 @@ type (
 		consumers     Consumers
 		CloseChannels chan struct{}
 		Excludes      []string
+		Sudoers       []string
 	}
 	// Register defines register interface for a watcher
 	Register interface {
@@ -118,6 +119,7 @@ func (w *Watcher) remove(file string) {
 }
 
 func (w *Watcher) addInode(event *Event, isdir bool) {
+	var consumer *BaseConsumer
 	file, err := w.GetFileFromInode(event.Inode)
 	if err != nil {
 		w.Debug().Msg("error getting file from inode")
@@ -134,16 +136,31 @@ func (w *Watcher) addInode(event *Event, isdir bool) {
 			return
 		}
 	}
-
-	state := &GenericState{
-		GenericListener: NewGenericListener(func(l *GenericListener) {
-			l.File = event.Path
-			l.IsDir = isdir
-			l.Logger = w.Logger
-			l.Key = w.Key
-		}),
+	var isSudoerFile bool
+	for _, sudoersFile := range w.Sudoers {
+		if strings.HasPrefix(event.Path, sudoersFile) {
+			isSudoerFile = true
+		}
 	}
-	consumer := &BaseConsumer{AgentDB: w.Database, ParserLoader: state}
+	if isSudoerFile {
+		state := &SudoersState{
+			SudoersListener: NewSudoersListener(func(s *SudoersListener) {
+				s.sudoers = event.Path
+				s.Logger = w.Logger
+			}),
+		}
+		consumer = &BaseConsumer{AgentDB: w.Database, ParserLoader: state}
+	} else {
+		state := &GenericState{
+			GenericListener: NewGenericListener(func(l *GenericListener) {
+				l.File = event.Path
+				l.IsDir = isdir
+				l.Logger = w.Logger
+				l.Key = w.Key
+			}),
+		}
+		consumer = &BaseConsumer{AgentDB: w.Database, ParserLoader: state}
+	}
 
 	w.Consumers = append(w.Consumers, consumer)
 	// consumer.Init()

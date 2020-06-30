@@ -44,7 +44,7 @@ type (
 		Consumers struct {
 			Root    string
 			Access  string
-			Sudoers string
+			Sudoers []string
 			Users   struct {
 				Shadow, Passwd string
 			}
@@ -52,8 +52,8 @@ type (
 			Excludes []string
 		}
 	}
-	// GenericFile is the struct for watching generic file
-	GenericFile struct {
+	// filesToMonitor is the struct for watching files, used for generic and sudoers consumers
+	FileInfo struct {
 		File  string
 		IsDir bool
 	}
@@ -91,6 +91,7 @@ func (c Configuration) logger() (logger zerolog.Logger) {
 
 func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) {
 	fs := afero.NewOsFs()
+
 	if c.Consumers.Root != "" {
 		fs = afero.NewBasePathFs(fs, c.Consumers.Root)
 	}
@@ -116,8 +117,20 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 		}
 	}
+	if len(c.Consumers.Sudoers) > 0 {
+		//get list of files to watch
+		sudoersFiles := c.getListOfFiles(fs, "sudoers")
+		for _, sudoersFile := range sudoersFiles {
+			state := &pkg.SudoersState{
+				SudoersListener: pkg.NewSudoersListener(
+					pkg.SudoersFileOpt(fs, sudoersFile.File, c.logger()),
+				),
+			}
+			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+		}
+	}
 	if len(c.Consumers.Generic) > 0 {
-		genericFiles := c.genericConsumer(fs)
+		genericFiles := c.getListOfFiles(fs, "generic")
 		for _, genericFile := range genericFiles {
 			if !c.fileBelongsToExclusionList(genericFile.File) {
 				genericFile := genericFile
@@ -152,10 +165,18 @@ func (c Configuration) fileBelongsToExclusionList(file string) bool {
 	return false
 }
 
-func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
+// Gets list of files to be monitored from all files/dirs listed in the config
+func (c Configuration) getListOfFiles(fs afero.Fs, consumerType string) []FileInfo {
 	logger := c.logger()
-	var genericFiles []GenericFile
-	for _, fullPath := range c.Consumers.Generic {
+	var filesToMonitor []FileInfo
+	var pathList []string
+	switch consumerType {
+	case "sudoers":
+		pathList = c.Consumers.Sudoers
+	case "generic":
+		pathList = c.Consumers.Generic
+	}
+	for _, fullPath := range pathList {
 		fullPath := fullPath
 		pkgFile := pkg.NewFile(func(file *pkg.File) {
 			file.Fs, file.Path, file.Logger = fs, fullPath, logger
@@ -168,7 +189,7 @@ func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
 		if PathFull == "" {
 			PathFull = fullPath
 		}
-		logger.Debug().Msgf("generic file to watch: %v", PathFull)
+		logger.Debug().Msgf("file to watch: %v", PathFull)
 		PathFull, fi := c.resolvePath(PathFull)
 		if PathFull == "" {
 			continue // could not resolve the file. skip for now.
@@ -178,7 +199,7 @@ func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
 		}
 		switch mode := fi.Mode(); {
 		case mode.IsDir():
-			logger.Debug().Msg("Generic is dir")
+			logger.Debug().Msg("Path is a dir")
 			err := filepath.Walk(PathFull, func(path string, info os.FileInfo, err error) error {
 				if c.checkIgnored(path, fs) {
 					return nil // skip for now
@@ -192,22 +213,22 @@ func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
 					return nil // skip for now
 				}
 
-				logger.Debug().Msgf("Generic Path: %v", path)
-				genericFiles = append(genericFiles, GenericFile{File: path, IsDir: isDir})
+				logger.Debug().Msgf("Path: %v", path)
+				filesToMonitor = append(filesToMonitor, FileInfo{File: path, IsDir: isDir})
 				return nil
 			})
 			if err != nil {
 				logger.Error().Err(err).Msgf("error walking dir: %v", PathFull)
 			}
 		case mode.IsRegular():
-			logger.Debug().Msg("Generic is file")
-			logger.Debug().Msgf("Generic Path: %v", PathFull)
-			genericFiles = append(genericFiles, GenericFile{File: PathFull, IsDir: false})
+			logger.Debug().Msg("Path is a file")
+			logger.Debug().Msgf("Path: %v", PathFull)
+			filesToMonitor = append(filesToMonitor, FileInfo{File: PathFull, IsDir: false})
 		default:
-			logger.Debug().Msg("Generic is dir")
+			logger.Debug().Msg("Path is a dir")
 		}
 	}
-	return genericFiles
+	return filesToMonitor
 }
 
 func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
@@ -259,6 +280,7 @@ func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
 		logger.Error().Msg("Could not type assert")
 		return false
 	}
+
 	passwdFilePath, _ := base.RealPath(c.Consumers.Users.Passwd)
 	shodowFilePath, _ := base.RealPath(c.Consumers.Users.Shadow)
 	accessFilePath, _ := base.RealPath(c.Consumers.Access)
@@ -357,7 +379,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 		}
 	}
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
-		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes
+		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes, w.Sudoers = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes, c.Consumers.Sudoers
 	}), nil
 }
 

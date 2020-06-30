@@ -44,18 +44,25 @@ _shadow() {
 	EOF
 }
 
-_config() {
-  echo "bcc = \"${PROJECT}/pkg/ebpf/vfs.o\"" >>bpfink.toml
-  echo "keyfile = \"\"" >>bpfink.toml
-  cat >>bpfink.toml <<-'EOF'
-		level = "info"
+_sudoers () {
+	cat > bpfink.sudoers <<- EOF
+		root ALL = (ALL:ALL) ALL
+	EOF
+}
+
+_config () {
+	echo "bcc = \"${PROJECT}/pkg/ebpf/vfs.o\"" >> bpfink.toml
+	echo "keyfile = \"\"" >> bpfink.toml
+	cat >> bpfink.toml <<- 'EOF'
+		level = "debug"
 		database = "bpfink.db"
 		[consumers]
 	EOF
   echo "root = \"/\"" >>bpfink.toml
 
-  echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >>bpfink.toml
-  echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\", \"/etc\"]" >>bpfink.toml
+  echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >> bpfink.toml
+  echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\"]" >> bpfink.toml
+  echo "sudoers = [\"${PROJECT}/examples/watcher/test-dir/bpfink.sudoers\", \"/home/rhasini/sudoers\"]" >> bpfink.toml
   echo "excludes = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher/exclude-dir\", \"${PROJECT}/examples/watcher/test-dir/excludeFile\"]" >>bpfink.toml
 
   cat >>bpfink.toml <<-'EOF'
@@ -92,6 +99,7 @@ init() {
   _passwd
   _shadow
   _access
+  _sudoers
   _config
   make -r -C "${PROJECT}/pkg/ebpf" || exit
 }
@@ -124,6 +132,15 @@ run_test() {
   sed -i '$ d' bpfink.shadow
   sleep 2
 
+  ##Sudoers
+  printf "\n\nadding 'ncircle ALL=(ALL) NOPASSWD:NCIRCLE_CMDS' and 'Cmnd_Alias NCIRCLE_CMDS=ALL, !/bin/netstat' to bpfink.sudoers\n\n"
+  echo "ncircle ALL=(ALL) NOPASSWD:NCIRCLE_CMDS" >>bpfink.sudoers
+  echo "Cmnd_Alias NCIRCLE_CMDS=ALL, !/bin/netstat" >>bpfink.sudoers
+  sleep 2
+  printf "\n\nremove last addition\n"
+  sed -i '$ d' bpfink.sudoers
+  sleep 2
+
   printf "\n\ncreate a new file in dynamic-watcher\n\n"
   echo "Real Time file creation" >>dynamic-watcher/dynamic-file.txt
   sleep 2
@@ -152,7 +169,7 @@ run() {
   clean
   init
   run_test &
-  sudo go run "${PROJECT}"/cmd/main.go --config "${PROJECT}"/examples/watcher/test-dir/bpfink.toml
+  sudo -E go run "${PROJECT}"/cmd/main.go --config "${PROJECT}"/examples/watcher/test-dir/bpfink.toml
   clean
 }
 

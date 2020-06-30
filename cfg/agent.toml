@@ -7,6 +7,7 @@ bcc = "pkg/ebpf/vfs.o"
 root = "/"
 access = "/access.conf"
 generic = ["/etc"]
+sudoers = ["/sudoers", "/etc/sudoers.d"]
 
 [consumers.users]
 root = "/"
