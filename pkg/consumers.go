@@ -345,16 +345,22 @@ type (
 
 //Parse calls parse(), and update new SudoersState
 func (ss *SudoersState) Parse() (State, error) {
-	sudoers, err := ss.parse()
-	if err != nil {
+	switch sudoers, err := ss.parse(); {
+	case err == nil:
+		ss.next = sudoers
+		return ss, nil
+	case IsNotExist(err): // file deleted
+		return ss, nil
+	default:
 		return nil, err
 	}
-	ss.next = sudoers
-	return ss, nil
 }
 
 //Changed checks if the new SudoersState instance is different from old SudoersState instance
 func (ss *SudoersState) Changed() bool {
+	if ss.next.IsEmpty() && !ss.current.IsEmpty() {
+		return true
+	}
 	add, del := sudoersDiff(ss.current, ss.next)
 	return !add.IsEmpty() || !del.IsEmpty()
 }
@@ -365,18 +371,39 @@ func (ss *SudoersState) Created() bool { return ss.current.IsEmpty() }
 //Notify is the method to notify of a change in state
 func (ss *SudoersState) Notify(cmd string, user string) {
 	add, del := sudoersDiff(ss.current, ss.next)
+	if ss.current.IsEmpty() {
+		ss.Warn().
+			Object("add", LogSudoers(add)).
+			Object("del", LogSudoers(del)).
+			Str("file", ss.sudoers).
+			Str("processName", cmd).
+			Str("user", user).
+			Msg("Sudoers file created")
+		return
+	}
+	if ss.next.IsEmpty() {
+		ss.Warn().
+			Object("add", LogSudoers(add)).
+			Object("del", LogSudoers(del)).
+			Str("file", ss.sudoers).
+			Str("processName", cmd).
+			Str("user", user).
+			Msg("Sudoers file deleted")
+		return
+	}
 	ss.Warn().
 		Object("add", LogSudoers(add)).
 		Object("del", LogSudoers(del)).
 		Str("file", ss.sudoers).
 		Str("processName", cmd).
 		Str("user", user).
-		Msg("Sudoers Modified")
+		Msg("Sudoers file modified")
 }
 
 //Teardown is the reset method when a change has been detected. Set new state to old state, and reload.
 func (ss *SudoersState) Teardown() error {
 	ss.current = ss.next
+	ss.next = Sudoers{}
 	return nil
 }
 

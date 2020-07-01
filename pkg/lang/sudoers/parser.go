@@ -31,16 +31,24 @@ func (p *Parser) Parse() error {
 			p.Error().Err(err)
 		}
 	}()
+	// If the file is empty
+	stat, err := file.Stat()
+	if err != nil {
+		return err
+	}
 
+	if stat.Size() == 0 {
+		p.Sudoers = append(p.Sudoers, Sudoer{
+			Rule: " ",
+		})
+	}
 	scanner := bufio.NewScanner(file)
-
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) == 0 || string(line[0]) == "#" {
 			continue
 		}
-		p.Logger.Debug().Msgf(" Sudoers entries are %v", line)
-
+		p.Logger.Debug().Msgf("Sudoers entries are %v", line)
 		p.Sudoers = append(p.Sudoers, Sudoer{
 			Rule: line,
 		})

@@ -25,6 +25,7 @@ type BPFinkRunParameters struct {
 	BPFinkEbpfProgramm   string
 	TestRootDir          string
 	GenericMonitoringDir string
+	SudoersDir           string
 }
 
 type genericFileLogRecord struct {
@@ -32,6 +33,20 @@ type genericFileLogRecord struct {
 	Generic struct {
 		Current string
 		Next    string
+	}
+	File        string `json:"file"`
+	ProcessName string
+	Message     string `json:"message"`
+	User        string `json:"user"`
+}
+
+type sudoersFileLogRecord struct {
+	Level string
+	Add   struct {
+		Sudoers []string
+	}
+	Del struct {
+		Sudoers []string
 	}
 	File        string `json:"file"`
 	ProcessName string
@@ -52,7 +67,7 @@ const (
 	HEALTHY
 )
 
-func generateConfig(t *testing.T, testRootDir, genericDir string, ebpfProgrammPath string) string {
+func generateConfig(t *testing.T, testRootDir, genericDir string, ebpfProgrammPath string, sudoersDir string) string {
 	tmplt := strings.TrimSpace(`
 level = "info"
 database = "{{.TestRootDir}}/bpfink.db"
@@ -62,6 +77,7 @@ bcc = "{{.EBPfProgrammPath}}"
 [consumers]
 root = "/"
 generic = ["{{.GenericMonitoringDir}}"]
+sudoers = ["{{.SudoersDir}}"]
 `)
 
 	outConfigPath := path.Join(testRootDir, "agent.toml")
@@ -75,7 +91,8 @@ generic = ["{{.GenericMonitoringDir}}"]
 		TestRootDir          string
 		GenericMonitoringDir string
 		EBPfProgrammPath     string
-	}{testRootDir, genericDir, ebpfProgrammPath})
+		SudoersDir           string
+	}{testRootDir, genericDir, ebpfProgrammPath, sudoersDir})
 
 	if err != nil {
 		t.Fatalf("failed to generate config file %s: %s", outConfigPath, err)
@@ -111,7 +128,11 @@ func BPFinkRun(t *testing.T, params BPFinkRunParameters) *BPFinkInstance {
 		t.Fatalf("unable to create dir for generic monitoring: %s", err)
 	}
 
-	configPath := generateConfig(t, params.TestRootDir, params.GenericMonitoringDir, params.BPFinkEbpfProgramm)
+	if err = os.Mkdir(params.SudoersDir, 0666); err != nil {
+		t.Fatalf("unable to create dir for sudoers monitoring: %s", err)
+	}
+
+	configPath := generateConfig(t, params.TestRootDir, params.GenericMonitoringDir, params.BPFinkEbpfProgramm, params.SudoersDir)
 
 	instance.cmd = exec.Command( //nolint:gosec
 		params.BPFinkBinPath,
@@ -224,4 +245,38 @@ func (instance *BPFinkInstance) Shutdown() {
 			_ = instance.cmd.Process.Kill()
 		}
 	}
+}
+
+func (instance *BPFinkInstance) ExpectSudoersEvent(t *testing.T, e Event) {
+	// give the event time to happen (file sync)
+	time.Sleep(10 * time.Millisecond)
+	line, err := instance.stdErr.ReadString('\n')
+	if err != nil {
+		t.Errorf("unable to read line from the file: %s", err)
+		return
+	}
+	var record sudoersFileLogRecord
+	if err = json.Unmarshal([]byte(string(line)), &record); err != nil {
+		t.Errorf("unable to parse line [%s] as sudoers file log record: %s", line, err)
+		return
+	}
+
+	if record.Level != "warn" {
+		t.Errorf("actual record type [%s] is not equal to expected [info]", record.Level)
+	}
+
+	if record.File != e.File {
+		t.Errorf("actual file record [%s] is not equal to expected [%s]", record.File, e.File)
+	}
+
+	if record.Message != e.Message {
+		t.Errorf("actual message record [%s] is not equal to expected [%s]", record.Message, e.Message)
+	}
+
+	if currentUser, err := user.Current(); err != nil {
+		t.Errorf("unable to get current user")
+	} else if record.User != currentUser.Username {
+		t.Errorf("actual user record [%s] is not equal to expected [%s]", record.User, currentUser.Username)
+	}
+
 }
