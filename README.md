@@ -63,13 +63,14 @@ __Main dependencies:__
 
 bpfink Is a set of consumers connected to file system watcher. We are currently using eBPF to watch vfs_write syscalls in the kernel.
 When an event is fired the associated consumer is called, we have currently two
-different consumers for three different use cases:
+different consumers for four different use cases:
 
 - User consumer, watch for the __/passwd__, __/shadow__ file to detect password changes
 (password hash is not logged to avoid offline brute force on leaked logs),
 it also watches for user home directory to detect ssh key injection.
 - Access consumer, just watch __/access.conf__
 - Generic consumer, watches for any existing or new files/directories for any given parent directory
+- Sudoers consumer, watches __/sudoers__ and all files under __/etc/sudoers.d__ directory.
 
 All consumers hold their own states to keep track of changes and diffing. If
 a difference is spotted, the diff is logged to our stdout in json format.

@@ -256,7 +256,7 @@ func (instance *BPFinkInstance) ExpectSudoersEvent(t *testing.T, e Event) {
 		return
 	}
 	var record sudoersFileLogRecord
-	if err = json.Unmarshal([]byte(string(line)), &record); err != nil {
+	if err = json.Unmarshal([]byte(line), &record); err != nil {
 		t.Errorf("unable to parse line [%s] as sudoers file log record: %s", line, err)
 		return
 	}
@@ -278,5 +278,4 @@ func (instance *BPFinkInstance) ExpectSudoersEvent(t *testing.T, e Event) {
 	} else if record.User != currentUser.Username {
 		t.Errorf("actual user record [%s] is not equal to expected [%s]", record.User, currentUser.Username)
 	}
-
 }

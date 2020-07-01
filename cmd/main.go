@@ -121,12 +121,14 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 		//get list of files to watch
 		sudoersFiles := c.getListOfFiles(fs, "sudoers")
 		for _, sudoersFile := range sudoersFiles {
-			state := &pkg.SudoersState{
-				SudoersListener: pkg.NewSudoersListener(
-					pkg.SudoersFileOpt(fs, sudoersFile.File, c.logger()),
-				),
+			if !c.fileBelongsToExclusionList(sudoersFile.File) {
+				state := &pkg.SudoersState{
+					SudoersListener: pkg.NewSudoersListener(
+						pkg.SudoersFileOpt(fs, sudoersFile.File, c.logger()),
+					),
+				}
+				consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 			}
-			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 		}
 	}
 	if len(c.Consumers.Generic) > 0 {

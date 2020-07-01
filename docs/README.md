@@ -11,11 +11,12 @@ warn level.
 __Structure of the logs:__
 
 As bpfink is trying to be smart during parsing, we are able to log a difference
-of state for dedicated structures. For the moment there's only __3 types of structures/logs__:
+of state for dedicated structures. For the moment there's only __4 types of structures/logs__:
 
 - users
 - access
 - generic
+- sudoers
 
 For each of those the internal structure is bit different, but the way it is logged 
 is the same. Basically, when detecting a change bpfink will logs __3 different information__:
@@ -23,7 +24,7 @@ is the same. Basically, when detecting a change bpfink will logs __3 different i
 - what has been added, under the `add` JSON key
 - what has been deleted, under the `del` JSON key
 - what is the current state, which as a different key depending on the consumer: 
-`users`, `generic`, `access`.
+`users`, `generic`, `access`, `sudoers`.
 
 In order to avoid complex logging logic, if an internal part of a structure has
 changed, this structure is logged both as `add` and `del`, the difference can
@@ -90,9 +91,28 @@ while `root` and `ALL` were
 	"generic":{
 		"current":"","next":"1a25723c4bbfb4ae20b83cbdcfc039e1a4d5f878e0c4b9f58db30478d6f8b6252403ba19d45ade5ea8e3bf65140a8a9b4995674626034f60cc7f405b"
 	},
-	"path":"dynamicPathFile",
+	"file":"dynamicPathFile",
 	"processName":"touch",
+	"user":"root"
 }
 ```
 
 In this example the file dynamicPathFile was created. 
+
+``` json
+{
+	"level": "warn",
+	"add": {
+		"Sudoers": ["root ALL = (ALL:ALL) ALL"]
+	},
+	"del": {
+		"Sudoers": []
+	},
+	"file": "bpfink.sudoers",
+	"processName": "-bash ",
+	"user": "root",
+	"message": "Sudoers file modified"
+}
+```
+
+In the above example the file bpfink.sudoers was modified.
