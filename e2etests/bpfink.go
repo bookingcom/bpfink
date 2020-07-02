@@ -25,18 +25,33 @@ type BPFinkRunParameters struct {
 	BPFinkEbpfProgramm   string
 	TestRootDir          string
 	GenericMonitoringDir string
+	SudoersDir           string
 }
 
-type genericFileLogRecord struct {
-	Level   string
-	Generic struct {
-		Current string
-		Next    string
-	}
+type baseFileLogRecord struct {
+	Level       string
 	File        string `json:"file"`
 	ProcessName string
 	Message     string `json:"message"`
 	User        string `json:"user"`
+}
+
+type genericFileLogRecord struct { // nolint: deadcode, unused
+	baseFileLogRecord
+	Generic struct {
+		Current string
+		Next    string
+	}
+}
+
+type sudoersFileLogRecord struct { // nolint: deadcode, unused
+	baseFileLogRecord
+	Add struct {
+		Sudoers []string
+	}
+	Del struct {
+		Sudoers []string
+	}
 }
 
 type Event struct {
@@ -52,7 +67,7 @@ const (
 	HEALTHY
 )
 
-func generateConfig(t *testing.T, testRootDir, genericDir string, ebpfProgrammPath string) string {
+func generateConfig(t *testing.T, testRootDir, genericDir string, ebpfProgrammPath string, sudoersDir string) string {
 	tmplt := strings.TrimSpace(`
 level = "info"
 database = "{{.TestRootDir}}/bpfink.db"
@@ -62,6 +77,7 @@ bcc = "{{.EBPfProgrammPath}}"
 [consumers]
 root = "/"
 generic = ["{{.GenericMonitoringDir}}"]
+sudoers = ["{{.SudoersDir}}"]
 `)
 
 	outConfigPath := path.Join(testRootDir, "agent.toml")
@@ -75,7 +91,8 @@ generic = ["{{.GenericMonitoringDir}}"]
 		TestRootDir          string
 		GenericMonitoringDir string
 		EBPfProgrammPath     string
-	}{testRootDir, genericDir, ebpfProgrammPath})
+		SudoersDir           string
+	}{testRootDir, genericDir, ebpfProgrammPath, sudoersDir})
 
 	if err != nil {
 		t.Fatalf("failed to generate config file %s: %s", outConfigPath, err)
@@ -111,7 +128,11 @@ func BPFinkRun(t *testing.T, params BPFinkRunParameters) *BPFinkInstance {
 		t.Fatalf("unable to create dir for generic monitoring: %s", err)
 	}
 
-	configPath := generateConfig(t, params.TestRootDir, params.GenericMonitoringDir, params.BPFinkEbpfProgramm)
+	if err = os.Mkdir(params.SudoersDir, 0666); err != nil {
+		t.Fatalf("unable to create dir for sudoers monitoring: %s", err)
+	}
+
+	configPath := generateConfig(t, params.TestRootDir, params.GenericMonitoringDir, params.BPFinkEbpfProgramm, params.SudoersDir)
 
 	instance.cmd = exec.Command( //nolint:gosec
 		params.BPFinkBinPath,
@@ -172,7 +193,7 @@ func (instance *BPFinkInstance) CheckIsHealthy(t *testing.T) ProcessHealth {
 	return WAITING
 }
 
-func (instance *BPFinkInstance) ExpectGenericEvent(t *testing.T, e Event) {
+func (instance *BPFinkInstance) ExpectEvent(t *testing.T, e Event) {
 	// give the event time to happen (file sync)
 	time.Sleep(10 * time.Millisecond)
 	line, err := instance.stdErr.ReadString('\n')
@@ -181,9 +202,9 @@ func (instance *BPFinkInstance) ExpectGenericEvent(t *testing.T, e Event) {
 		return
 	}
 
-	var record genericFileLogRecord
+	var record baseFileLogRecord
 	if err = json.Unmarshal([]byte(line), &record); err != nil {
-		t.Errorf("unable to parse line [%s] as generic file log record: %s", line, err)
+		t.Errorf("unable to parse line [%s] as a log record: %s", line, err)
 		return
 	}
 

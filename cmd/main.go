@@ -44,7 +44,7 @@ type (
 		Consumers struct {
 			Root    string
 			Access  string
-			Sudoers string
+			Sudoers []string
 			Users   struct {
 				Shadow, Passwd string
 			}
@@ -52,8 +52,8 @@ type (
 			Excludes []string
 		}
 	}
-	// GenericFile is the struct for watching generic file
-	GenericFile struct {
+	// filesToMonitor is the struct for watching files, used for generic and sudoers consumers
+	FileInfo struct {
 		File  string
 		IsDir bool
 	}
@@ -91,21 +91,24 @@ func (c Configuration) logger() (logger zerolog.Logger) {
 
 func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) {
 	fs := afero.NewOsFs()
+	var existingConsumersFiles = make(map[string]bool)
+
 	if c.Consumers.Root != "" {
 		fs = afero.NewBasePathFs(fs, c.Consumers.Root)
 	}
 	if c.Consumers.Access != "" {
-		if !c.fileBelongsToExclusionList(c.Consumers.Access) {
+		if !c.isFileToBeExcluded(c.Consumers.Access, existingConsumersFiles) {
 			state := &pkg.AccessState{
 				AccessListener: pkg.NewAccessListener(
 					pkg.AccessFileOpt(fs, c.Consumers.Access, c.logger()),
 				),
 			}
 			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+			existingConsumersFiles[c.Consumers.Access] = true
 		}
 	}
 	if c.Consumers.Users.Shadow != "" && c.Consumers.Users.Passwd != "" {
-		if !c.fileBelongsToExclusionList(c.Consumers.Users.Shadow) || !c.fileBelongsToExclusionList(c.Consumers.Users.Passwd) {
+		if !c.isFileToBeExcluded(c.Consumers.Users.Shadow, existingConsumersFiles) || !c.isFileToBeExcluded(c.Consumers.Users.Passwd, existingConsumersFiles) {
 			state := &pkg.UsersState{
 				UsersListener: pkg.NewUsersListener(func(l *pkg.UsersListener) {
 					l.Passwd = c.Consumers.Users.Passwd
@@ -114,12 +117,29 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 				}),
 			}
 			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+			existingConsumersFiles[c.Consumers.Users.Shadow] = true
+			existingConsumersFiles[c.Consumers.Users.Passwd] = true
+		}
+	}
+	if len(c.Consumers.Sudoers) > 0 {
+		//get list of files to watch
+		sudoersFiles := c.getListOfFiles(fs, c.Consumers.Sudoers)
+		for _, sudoersFile := range sudoersFiles {
+			if !c.isFileToBeExcluded(sudoersFile.File, existingConsumersFiles) {
+				state := &pkg.SudoersState{
+					SudoersListener: pkg.NewSudoersListener(
+						pkg.SudoersFileOpt(fs, sudoersFile.File, c.logger()),
+					),
+				}
+				consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+				existingConsumersFiles[sudoersFile.File] = true
+			}
 		}
 	}
 	if len(c.Consumers.Generic) > 0 {
-		genericFiles := c.genericConsumer(fs)
+		genericFiles := c.getListOfFiles(fs, c.Consumers.Generic)
 		for _, genericFile := range genericFiles {
-			if !c.fileBelongsToExclusionList(genericFile.File) {
+			if !c.isFileToBeExcluded(genericFile.File, existingConsumersFiles) {
 				genericFile := genericFile
 				state := &pkg.GenericState{
 					GenericListener: pkg.NewGenericListener(func(l *pkg.GenericListener) {
@@ -137,25 +157,30 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 	return consumers
 }
 
-/* 	Checks if file belongs to exclusion list
-true: if file needs to be excluded and hence does not create consumer
+/* 	Checks if file belongs to exclusion list or is already assigned to a consumer and excludes it accordingly
+true: if file needs to be excluded
 false: otherwise
 */
-func (c Configuration) fileBelongsToExclusionList(file string) bool {
+func (c Configuration) isFileToBeExcluded(file string, existingConsumersFiles map[string]bool) bool {
 	logger := c.logger()
+	isFileExcluded := false
+
 	for _, excludeFile := range c.Consumers.Excludes {
 		if strings.HasPrefix(file, excludeFile) {
 			logger.Debug().Msgf("File belongs to exclusion list, excluding from monitoring: %v", file)
-			return true
+			isFileExcluded = true
+			break
 		}
 	}
-	return false
+
+	return isFileExcluded || existingConsumersFiles[file]
 }
 
-func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
+// Gets list of files to be monitored from all files/dirs listed in the config
+func (c Configuration) getListOfFiles(fs afero.Fs, pathList []string) []FileInfo {
 	logger := c.logger()
-	var genericFiles []GenericFile
-	for _, fullPath := range c.Consumers.Generic {
+	var filesToMonitor []FileInfo
+	for _, fullPath := range pathList {
 		fullPath := fullPath
 		pkgFile := pkg.NewFile(func(file *pkg.File) {
 			file.Fs, file.Path, file.Logger = fs, fullPath, logger
@@ -168,46 +193,37 @@ func (c Configuration) genericConsumer(fs afero.Fs) []GenericFile {
 		if PathFull == "" {
 			PathFull = fullPath
 		}
-		logger.Debug().Msgf("generic file to watch: %v", PathFull)
+		logger.Debug().Msgf("file to watch: %v", PathFull)
 		PathFull, fi := c.resolvePath(PathFull)
 		if PathFull == "" {
 			continue // could not resolve the file. skip for now.
 		}
-		if c.checkIgnored(PathFull, fs) {
-			continue // skip ignored file
-		}
+
 		switch mode := fi.Mode(); {
 		case mode.IsDir():
-			logger.Debug().Msg("Generic is dir")
+			logger.Debug().Msg("Path is a dir")
 			err := filepath.Walk(PathFull, func(path string, info os.FileInfo, err error) error {
-				if c.checkIgnored(path, fs) {
-					return nil // skip for now
-				}
 				walkPath, resolvedInfo := c.resolvePath(path)
 				if walkPath == "" {
 					return nil // path could not be resolved skip for now
 				}
 				isDir := resolvedInfo.IsDir()
-				if c.checkIgnored(walkPath, fs) {
-					return nil // skip for now
-				}
-
-				logger.Debug().Msgf("Generic Path: %v", path)
-				genericFiles = append(genericFiles, GenericFile{File: path, IsDir: isDir})
+				logger.Debug().Msgf("Path: %v", path)
+				filesToMonitor = append(filesToMonitor, FileInfo{File: path, IsDir: isDir})
 				return nil
 			})
 			if err != nil {
 				logger.Error().Err(err).Msgf("error walking dir: %v", PathFull)
 			}
 		case mode.IsRegular():
-			logger.Debug().Msg("Generic is file")
-			logger.Debug().Msgf("Generic Path: %v", PathFull)
-			genericFiles = append(genericFiles, GenericFile{File: PathFull, IsDir: false})
+			logger.Debug().Msg("Path is a file")
+			logger.Debug().Msgf("Path: %v", PathFull)
+			filesToMonitor = append(filesToMonitor, FileInfo{File: PathFull, IsDir: false})
 		default:
-			logger.Debug().Msg("Generic is dir")
+			logger.Debug().Msg("Path is a dir")
 		}
 	}
-	return genericFiles
+	return filesToMonitor
 }
 
 func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
@@ -217,7 +233,9 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 		logger.Error().Err(err).Msgf("error getting file stat: %v", pathFull)
 		return "", nil
 	}
-
+	if fi.Mode()&os.ModeSocket != 0 {
+		return "", nil
+	}
 	logger.Debug().Msgf("is symlink: %v", fi.Mode()&os.ModeSymlink != 0)
 	if fi.Mode()&os.ModeSymlink != 0 {
 		linkPath, err := os.Readlink(pathFull)
@@ -250,43 +268,6 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 		return pathFull, fi
 	}
 	return "", nil
-}
-
-func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
-	logger := c.logger()
-	base, ok := fs.(*afero.BasePathFs)
-	if !ok {
-		logger.Error().Msg("Could not type assert")
-		return false
-	}
-	passwdFilePath, _ := base.RealPath(c.Consumers.Users.Passwd)
-	shodowFilePath, _ := base.RealPath(c.Consumers.Users.Shadow)
-	accessFilePath, _ := base.RealPath(c.Consumers.Access)
-
-	switch path {
-	case passwdFilePath:
-		return true
-	case shodowFilePath:
-		return true
-	case accessFilePath:
-		return true
-	default:
-		// If file belongs to exclusion list, ignore it
-		if c.fileBelongsToExclusionList(path) {
-			return true
-		}
-		// Get file stat
-		fi, err := os.Stat(path)
-		if err != nil {
-			logger.Error().Err(err).Msgf("error getting file stat: %v", path)
-			return true
-		}
-		// If file is a socket, ignore it
-		if fi.Mode()&os.ModeSocket != 0 {
-			return true
-		}
-		return false
-	}
 }
 
 func (c Configuration) metrics() (*pkg.Metrics, error) {
@@ -357,7 +338,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 		}
 	}
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
-		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes
+		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes, w.Sudoers = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes, c.Consumers.Sudoers
 	}), nil
 }
 
