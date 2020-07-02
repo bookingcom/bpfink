@@ -28,30 +28,30 @@ type BPFinkRunParameters struct {
 	SudoersDir           string
 }
 
-type genericFileLogRecord struct {
-	Level   string
-	Generic struct {
-		Current string
-		Next    string
-	}
+type baseFileLogRecord struct {
+	Level       string
 	File        string `json:"file"`
 	ProcessName string
 	Message     string `json:"message"`
 	User        string `json:"user"`
 }
 
+type genericFileLogRecord struct {
+	baseFileLogRecord
+	Generic struct {
+		Current string
+		Next    string
+	}
+}
+
 type sudoersFileLogRecord struct {
-	Level string
-	Add   struct {
+	baseFileLogRecord
+	Add struct {
 		Sudoers []string
 	}
 	Del struct {
 		Sudoers []string
 	}
-	File        string `json:"file"`
-	ProcessName string
-	Message     string `json:"message"`
-	User        string `json:"user"`
 }
 
 type Event struct {
@@ -193,7 +193,7 @@ func (instance *BPFinkInstance) CheckIsHealthy(t *testing.T) ProcessHealth {
 	return WAITING
 }
 
-func (instance *BPFinkInstance) ExpectGenericEvent(t *testing.T, e Event) {
+func (instance *BPFinkInstance) ExpectEvent(t *testing.T, e Event) {
 	// give the event time to happen (file sync)
 	time.Sleep(10 * time.Millisecond)
 	line, err := instance.stdErr.ReadString('\n')
@@ -202,9 +202,9 @@ func (instance *BPFinkInstance) ExpectGenericEvent(t *testing.T, e Event) {
 		return
 	}
 
-	var record genericFileLogRecord
+	var record baseFileLogRecord
 	if err = json.Unmarshal([]byte(line), &record); err != nil {
-		t.Errorf("unable to parse line [%s] as generic file log record: %s", line, err)
+		t.Errorf("unable to parse line [%s] as a log record: %s", line, err)
 		return
 	}
 
@@ -244,38 +244,5 @@ func (instance *BPFinkInstance) Shutdown() {
 			instance.t.Errorf("bpfink stop the work with the error status: %v", err)
 			_ = instance.cmd.Process.Kill()
 		}
-	}
-}
-
-func (instance *BPFinkInstance) ExpectSudoersEvent(t *testing.T, e Event) {
-	// give the event time to happen (file sync)
-	time.Sleep(10 * time.Millisecond)
-	line, err := instance.stdErr.ReadString('\n')
-	if err != nil {
-		t.Errorf("unable to read line from the file: %s", err)
-		return
-	}
-	var record sudoersFileLogRecord
-	if err = json.Unmarshal([]byte(line), &record); err != nil {
-		t.Errorf("unable to parse line [%s] as sudoers file log record: %s", line, err)
-		return
-	}
-
-	if record.Level != "warn" {
-		t.Errorf("actual record type [%s] is not equal to expected [info]", record.Level)
-	}
-
-	if record.File != e.File {
-		t.Errorf("actual file record [%s] is not equal to expected [%s]", record.File, e.File)
-	}
-
-	if record.Message != e.Message {
-		t.Errorf("actual message record [%s] is not equal to expected [%s]", record.Message, e.Message)
-	}
-
-	if currentUser, err := user.Current(); err != nil {
-		t.Errorf("unable to get current user")
-	} else if record.User != currentUser.Username {
-		t.Errorf("actual user record [%s] is not equal to expected [%s]", record.User, currentUser.Username)
 	}
 }
