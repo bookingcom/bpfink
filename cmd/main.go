@@ -91,22 +91,24 @@ func (c Configuration) logger() (logger zerolog.Logger) {
 
 func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) {
 	fs := afero.NewOsFs()
+	var existingConsumersFiles = make(map[string]bool)
 
 	if c.Consumers.Root != "" {
 		fs = afero.NewBasePathFs(fs, c.Consumers.Root)
 	}
 	if c.Consumers.Access != "" {
-		if !c.fileBelongsToExclusionList(c.Consumers.Access) {
+		if !c.isFileToBeExcluded(c.Consumers.Access, existingConsumersFiles) {
 			state := &pkg.AccessState{
 				AccessListener: pkg.NewAccessListener(
 					pkg.AccessFileOpt(fs, c.Consumers.Access, c.logger()),
 				),
 			}
 			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+			existingConsumersFiles[c.Consumers.Access] = true
 		}
 	}
 	if c.Consumers.Users.Shadow != "" && c.Consumers.Users.Passwd != "" {
-		if !c.fileBelongsToExclusionList(c.Consumers.Users.Shadow) || !c.fileBelongsToExclusionList(c.Consumers.Users.Passwd) {
+		if !c.isFileToBeExcluded(c.Consumers.Users.Shadow, existingConsumersFiles) || !c.isFileToBeExcluded(c.Consumers.Users.Passwd, existingConsumersFiles) {
 			state := &pkg.UsersState{
 				UsersListener: pkg.NewUsersListener(func(l *pkg.UsersListener) {
 					l.Passwd = c.Consumers.Users.Passwd
@@ -115,26 +117,29 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 				}),
 			}
 			consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+			existingConsumersFiles[c.Consumers.Users.Shadow] = true
+			existingConsumersFiles[c.Consumers.Users.Passwd] = true
 		}
 	}
 	if len(c.Consumers.Sudoers) > 0 {
 		//get list of files to watch
-		sudoersFiles := c.getListOfFiles(fs, "sudoers")
+		sudoersFiles := c.getListOfFiles(fs, c.Consumers.Sudoers)
 		for _, sudoersFile := range sudoersFiles {
-			if !c.fileBelongsToExclusionList(sudoersFile.File) {
+			if !c.isFileToBeExcluded(sudoersFile.File, existingConsumersFiles) {
 				state := &pkg.SudoersState{
 					SudoersListener: pkg.NewSudoersListener(
 						pkg.SudoersFileOpt(fs, sudoersFile.File, c.logger()),
 					),
 				}
 				consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
+				existingConsumersFiles[sudoersFile.File] = true
 			}
 		}
 	}
 	if len(c.Consumers.Generic) > 0 {
-		genericFiles := c.getListOfFiles(fs, "generic")
+		genericFiles := c.getListOfFiles(fs, c.Consumers.Generic)
 		for _, genericFile := range genericFiles {
-			if !c.fileBelongsToExclusionList(genericFile.File) {
+			if !c.isFileToBeExcluded(genericFile.File, existingConsumersFiles) {
 				genericFile := genericFile
 				state := &pkg.GenericState{
 					GenericListener: pkg.NewGenericListener(func(l *pkg.GenericListener) {
@@ -152,32 +157,29 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 	return consumers
 }
 
-/* 	Checks if file belongs to exclusion list
-true: if file needs to be excluded and hence does not create consumer
+/* 	Checks if file belongs to exclusion list or is already assigned to a consumer and excludes it accordingly
+true: if file needs to be excluded
 false: otherwise
 */
-func (c Configuration) fileBelongsToExclusionList(file string) bool {
+func (c Configuration) isFileToBeExcluded(file string, existingConsumersFiles map[string]bool) bool {
 	logger := c.logger()
+	isFileExcluded := false
+
 	for _, excludeFile := range c.Consumers.Excludes {
 		if strings.HasPrefix(file, excludeFile) {
 			logger.Debug().Msgf("File belongs to exclusion list, excluding from monitoring: %v", file)
-			return true
+			isFileExcluded = true
+			break
 		}
 	}
-	return false
+
+	return isFileExcluded || existingConsumersFiles[file]
 }
 
 // Gets list of files to be monitored from all files/dirs listed in the config
-func (c Configuration) getListOfFiles(fs afero.Fs, consumerType string) []FileInfo {
+func (c Configuration) getListOfFiles(fs afero.Fs, pathList []string) []FileInfo {
 	logger := c.logger()
 	var filesToMonitor []FileInfo
-	var pathList []string
-	switch consumerType {
-	case "sudoers":
-		pathList = c.Consumers.Sudoers
-	case "generic":
-		pathList = c.Consumers.Generic
-	}
 	for _, fullPath := range pathList {
 		fullPath := fullPath
 		pkgFile := pkg.NewFile(func(file *pkg.File) {
@@ -196,25 +198,16 @@ func (c Configuration) getListOfFiles(fs afero.Fs, consumerType string) []FileIn
 		if PathFull == "" {
 			continue // could not resolve the file. skip for now.
 		}
-		if c.checkIgnored(PathFull, fs, consumerType) {
-			continue // skip ignored file
-		}
+
 		switch mode := fi.Mode(); {
 		case mode.IsDir():
 			logger.Debug().Msg("Path is a dir")
 			err := filepath.Walk(PathFull, func(path string, info os.FileInfo, err error) error {
-				if c.checkIgnored(path, fs, consumerType) {
-					return nil // skip for now
-				}
 				walkPath, resolvedInfo := c.resolvePath(path)
 				if walkPath == "" {
 					return nil // path could not be resolved skip for now
 				}
 				isDir := resolvedInfo.IsDir()
-				if c.checkIgnored(walkPath, fs, consumerType) {
-					return nil // skip for now
-				}
-
 				logger.Debug().Msgf("Path: %v", path)
 				filesToMonitor = append(filesToMonitor, FileInfo{File: path, IsDir: isDir})
 				return nil
@@ -240,7 +233,9 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 		logger.Error().Err(err).Msgf("error getting file stat: %v", pathFull)
 		return "", nil
 	}
-
+	if fi.Mode()&os.ModeSocket != 0 {
+		return "", nil
+	}
 	logger.Debug().Msgf("is symlink: %v", fi.Mode()&os.ModeSymlink != 0)
 	if fi.Mode()&os.ModeSymlink != 0 {
 		linkPath, err := os.Readlink(pathFull)
@@ -273,53 +268,6 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 		return pathFull, fi
 	}
 	return "", nil
-}
-
-func (c Configuration) checkIgnored(path string, fs afero.Fs, consumerType string) bool {
-	logger := c.logger()
-	base, ok := fs.(*afero.BasePathFs)
-	if !ok {
-		logger.Error().Msg("Could not type assert")
-		return false
-	}
-
-	passwdFilePath, _ := base.RealPath(c.Consumers.Users.Passwd)
-	shodowFilePath, _ := base.RealPath(c.Consumers.Users.Shadow)
-	accessFilePath, _ := base.RealPath(c.Consumers.Access)
-
-	switch path {
-	case passwdFilePath:
-		return true
-	case shodowFilePath:
-		return true
-	case accessFilePath:
-		return true
-	default:
-		// If file belongs to sudoers list, ignore it in generic consumer
-		if consumerType == "generic" {
-			for _, sudoersFile := range c.Consumers.Sudoers {
-				if strings.HasPrefix(path, sudoersFile) {
-					logger.Debug().Msgf("File belongs to sudoers list, excluding from generic monitoring: %v", path)
-					return true
-				}
-			}
-		}
-		// If file belongs to exclusion list, ignore it
-		if c.fileBelongsToExclusionList(path) {
-			return true
-		}
-		// Get file stat
-		fi, err := os.Stat(path)
-		if err != nil {
-			logger.Error().Err(err).Msgf("error getting file stat: %v", path)
-			return true
-		}
-		// If file is a socket, ignore it
-		if fi.Mode()&os.ModeSocket != 0 {
-			return true
-		}
-		return false
-	}
 }
 
 func (c Configuration) metrics() (*pkg.Metrics, error) {
