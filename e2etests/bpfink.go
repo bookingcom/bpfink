@@ -36,7 +36,7 @@ type baseFileLogRecord struct {
 	User        string `json:"user"`
 }
 
-type genericFileLogRecord struct {
+type genericFileLogRecord struct { // nolint: deadcode, unused
 	baseFileLogRecord
 	Generic struct {
 		Current string
@@ -44,7 +44,7 @@ type genericFileLogRecord struct {
 	}
 }
 
-type sudoersFileLogRecord struct {
+type sudoersFileLogRecord struct { // nolint: deadcode, unused
 	baseFileLogRecord
 	Add struct {
 		Sudoers []string
