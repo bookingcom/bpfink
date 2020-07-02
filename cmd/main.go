@@ -196,14 +196,14 @@ func (c Configuration) getListOfFiles(fs afero.Fs, consumerType string) []FileIn
 		if PathFull == "" {
 			continue // could not resolve the file. skip for now.
 		}
-		if c.checkIgnored(PathFull, fs) {
+		if c.checkIgnored(PathFull, fs, consumerType) {
 			continue // skip ignored file
 		}
 		switch mode := fi.Mode(); {
 		case mode.IsDir():
 			logger.Debug().Msg("Path is a dir")
 			err := filepath.Walk(PathFull, func(path string, info os.FileInfo, err error) error {
-				if c.checkIgnored(path, fs) {
+				if c.checkIgnored(path, fs, consumerType) {
 					return nil // skip for now
 				}
 				walkPath, resolvedInfo := c.resolvePath(path)
@@ -211,7 +211,7 @@ func (c Configuration) getListOfFiles(fs afero.Fs, consumerType string) []FileIn
 					return nil // path could not be resolved skip for now
 				}
 				isDir := resolvedInfo.IsDir()
-				if c.checkIgnored(walkPath, fs) {
+				if c.checkIgnored(walkPath, fs, consumerType) {
 					return nil // skip for now
 				}
 
@@ -275,7 +275,7 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 	return "", nil
 }
 
-func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
+func (c Configuration) checkIgnored(path string, fs afero.Fs, consumerType string) bool {
 	logger := c.logger()
 	base, ok := fs.(*afero.BasePathFs)
 	if !ok {
@@ -295,6 +295,15 @@ func (c Configuration) checkIgnored(path string, fs afero.Fs) bool {
 	case accessFilePath:
 		return true
 	default:
+		// If file belongs to sudoers list, ignore it in generic consumer
+		if consumerType == "generic" {
+			for _, sudoersFile := range c.Consumers.Sudoers {
+				if strings.HasPrefix(path, sudoersFile) {
+					logger.Debug().Msgf("File belongs to sudoers list, excluding from generic monitoring: %v", path)
+					return true
+				}
+			}
+		}
 		// If file belongs to exclusion list, ignore it
 		if c.fileBelongsToExclusionList(path) {
 			return true
