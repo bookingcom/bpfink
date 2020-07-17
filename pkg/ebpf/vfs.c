@@ -79,6 +79,28 @@ struct bpf_map_def SEC("maps/rules") rules = {
 	.namespace = "bpfink",
 };
 
+
+static __always_inline bool inode_matches_device(u64 expected_device, struct inode_sm *inode, bool need_to_read_superblock) {
+    // file is uniquely identified by the (inode, dev) pair
+    // so far we catch a event for the file with matched inode
+    // we need to verify dev id is also matched to be sure we catch the event for the right file
+    
+    struct super_block *sb;
+    // sometimes superblock is accessible directly from inode
+    // sometimes isn't
+    if (need_to_read_superblock) {
+        bpf_probe_read(&sb, sizeof(sb), (u64)&inode->i_sb);
+    } else {
+        sb = inode->i_sb;
+    }
+
+    dev_t kdevice = 0;
+    bpf_probe_read(&kdevice, sizeof(kdevice), (u64)&sb->s_dev);
+    
+    // transform device_id from the kernel-space format to the user-space format
+    return expected_device == (u64)new_encode_dev(kdevice); 
+}
+
 SEC("kprobe/vfs_write")
 int trace_write_entry(struct pt_regs *ctx){
     struct data_t data = {};
@@ -98,21 +120,7 @@ int trace_write_entry(struct pt_regs *ctx){
         }
 
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &inode.i_ino);
-        if (rule_exists == 0) {
-            return 0;
-        }
-
-        // file is uniquely identified by the (inode, dev) pair
-        // so far we catch a write event for the file with matched inode
-        // we need to verify dev id is also matched to be sure we catch the event for the right file
-        dev_t kdevice = 0;
-        bpf_probe_read(&kdevice, sizeof(kdevice), (u64)&inode.i_sb->s_dev);
-        
-        // transform device_id from the kernel-space format to the user-space format
-        u64 actualDeviceID = (u64)new_encode_dev(kdevice); 
-        u64 expectedDeviceID = *rule_exists;
-        
-        if (actualDeviceID != expectedDeviceID) {
+        if (rule_exists == 0 || !inode_matches_device(*rule_exists, &inode, false)) {
             return 0;
         }
 
@@ -165,19 +173,8 @@ int trace_vfs_rename(struct pt_regs *ctx) {
         // rule exists either if we are monitoring target directory or target file
         u64 *rule_exists = newInode == 0 ? bpf_map_lookup_elem(&rules, &new_dir.i_ino)
                                          : bpf_map_lookup_elem(&rules, &newInode);
-        if (rule_exists == 0) {
-            return 0;
-        }
 
-        // check if the destination file or directory belongs to the same device as a
-        // monitored one
-        dev_t kdevice = 0;
-        bpf_probe_read(&kdevice, sizeof(kdevice), (u64)&new_dir.i_sb->s_dev);
-
-        u64 actualDeviceID = (u64)new_encode_dev(kdevice);
-        u64 expectedDeviceID = *rule_exists;
-
-        if (actualDeviceID != expectedDeviceID) {
+        if (rule_exists == 0 || !inode_matches_device(*rule_exists, &new_dir, false)) {
             return 0;
         }
 
@@ -203,26 +200,24 @@ SEC("kprobe/vfs_unlink") //delete file
 int trace_vfs_unlink(struct pt_regs *ctx) {
     struct data_t data = {};
     if (bpf_get_current_comm(&data.comm, sizeof(data.comm)) == 0) {
+        typeof(struct inode *) file_inode;
+        __builtin_memset(&file_inode, 0, sizeof(file_inode));
+        bpf_probe_read(&file_inode, sizeof(file_inode), (u64)&({
+            typeof(struct dentry *) _val;
+            __builtin_memset(&_val, 0, sizeof(_val));
+            bpf_probe_read(&_val, sizeof(_val), (u64)&PT_REGS_PARM2(ctx));
+            _val;
+        })->d_inode);
 
         u64 oldInode = ({
             typeof(dev_t) _val;
             __builtin_memset(&_val, 0, sizeof(_val));
-            bpf_probe_read(&_val, sizeof(_val), (u64)&({
-                typeof(struct inode *) _val;
-                __builtin_memset(&_val, 0, sizeof(_val));
-                bpf_probe_read(&_val, sizeof(_val), (u64)&({
-                    typeof(struct dentry *) _val;
-                    __builtin_memset(&_val, 0, sizeof(_val));
-                    bpf_probe_read(&_val, sizeof(_val), (u64)&PT_REGS_PARM2(ctx));
-                    _val;
-                })->d_inode);
-                _val;
-            })->i_ino);
+            bpf_probe_read(&_val, sizeof(_val), (u64)&(file_inode)->i_ino);
             _val;
         });
 
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &oldInode);
-        if (rule_exists == 0) {
+        if (rule_exists == 0 || !inode_matches_device(*rule_exists, file_inode, true)) {
             return 0;
         }
 
@@ -244,26 +239,24 @@ SEC("kprobe/vfs_rmdir")
 int trace_vfs_rmdir(struct pt_regs *ctx) {
     struct data_t data = {};
     if (bpf_get_current_comm(&data.comm, sizeof(data.comm)) == 0) {
+        typeof(struct inode *) dir_inode;
+        __builtin_memset(&dir_inode, 0, sizeof(dir_inode));
+        bpf_probe_read(&dir_inode, sizeof(dir_inode), (u64)&({
+            typeof(struct dentry *) _val;
+            __builtin_memset(&_val, 0, sizeof(_val));
+            bpf_probe_read(&_val, sizeof(_val), (u64)&PT_REGS_PARM2(ctx));
+            _val;
+        })->d_inode);
 
         u64 inode_number = ({
             typeof(dev_t) _val;
             __builtin_memset(&_val, 0, sizeof(_val));
-            bpf_probe_read(&_val, sizeof(_val), (u64)&({
-                typeof(struct inode *) _val;
-                __builtin_memset(&_val, 0, sizeof(_val));
-                bpf_probe_read(&_val, sizeof(_val), (u64)&({
-                    typeof(struct dentry *) _val;
-                    __builtin_memset(&_val, 0, sizeof(_val));
-                    bpf_probe_read(&_val, sizeof(_val), (u64)&PT_REGS_PARM2(ctx));
-                    _val;
-                })->d_inode);
-                _val;
-            })->i_ino);
+            bpf_probe_read(&_val, sizeof(_val), (u64)&(dir_inode)->i_ino);
             _val;
         });
 
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &inode_number);
-        if (rule_exists == 0) {
+        if (rule_exists == 0 || !inode_matches_device(*rule_exists, dir_inode, true)) {
             return 0;
         }
 
@@ -283,13 +276,9 @@ SEC("kprobe/done_path_create") //mkdir
 int trace_done_path_create(struct pt_regs *ctx) {
     struct data_t data = {};
     if (bpf_get_current_comm(&data.comm, sizeof(data.comm)) == 0) {
-        u64 parent_inode_number = ({
-            typeof(dev_t) _val;
-            __builtin_memset(&_val, 0, sizeof(_val));
-            bpf_probe_read(&_val, sizeof(_val), (u64)&({
-                typeof(struct inode *) _val;
-                __builtin_memset(&_val, 0, sizeof(_val));
-                bpf_probe_read(&_val, sizeof(_val), (u64)&({
+        typeof(struct inode_sm*) parent_dir;
+        __builtin_memset(&parent_dir, 0, sizeof(parent_dir));
+        bpf_probe_read(&parent_dir, sizeof(parent_dir), (u64)&({
                     typeof(struct dentry *) _val;
                     __builtin_memset(&_val, 0, sizeof(_val));
                     bpf_probe_read(&_val, sizeof(_val), (u64)&({
@@ -300,13 +289,16 @@ int trace_done_path_create(struct pt_regs *ctx) {
                     })->dentry);
                     _val;
                 })->d_inode);
-                _val;
-            })->i_ino);
+        
+        u64 parent_inode_number = ({
+            typeof(dev_t) _val;
+            __builtin_memset(&_val, 0, sizeof(_val));
+            bpf_probe_read(&_val, sizeof(_val), (u64)&(parent_dir)->i_ino);
             _val;
         });
 
         u64 *rule_exists = bpf_map_lookup_elem(&rules, &parent_inode_number);
-        if (rule_exists == 0) {
+        if (rule_exists == 0 || !inode_matches_device(*rule_exists, parent_dir, true)) {
             return 0;
         }
 
@@ -327,14 +319,9 @@ int trace_done_path_create(struct pt_regs *ctx) {
             _val;
         });
 
-        u64 flag = 0;
-        u64 value = 2;
-        bpf_map_update_elem(&rules, (void *)&child_inode_number, (void *)&value, flag);
-
          struct dentry_sm *d_child;
 
         bpf_probe_read(&d_child, sizeof(d_child), &PT_REGS_PARM2(ctx));
-
         bpf_probe_read(&data.name, sizeof(data.name), &d_child->d_name.name+2);
 
         u64 id = bpf_get_current_pid_tgid();
@@ -390,21 +377,12 @@ int trace_do_dentry_open(struct pt_regs *ctx) {
         }
 
         bpf_probe_read(&inode, sizeof(inode), (void *)PT_REGS_PARM2(ctx));
-
-        dev_t kdevice = 0;
-        bpf_probe_read(&kdevice, sizeof(kdevice), (u64)&inode.i_sb->s_dev);
-
-        u64 actualDeviceID = (u64)new_encode_dev(kdevice);
-        u64 expectedDeviceID = *rule_exists;
-
-        if (actualDeviceID != expectedDeviceID) {
+        if (!inode_matches_device(*rule_exists, &inode, false)) {
             return 0;
         }
 
         bpf_probe_read(&data.name, sizeof(data.name),   &file.f_path.dentry->d_name.name+2);
         bpf_probe_read(&data.device, sizeof(data.device),  &file.f_path.dentry->d_name.len);
-
-
 
         u64 id = bpf_get_current_pid_tgid();
         data.mode = 4; //constant defining create new file,
