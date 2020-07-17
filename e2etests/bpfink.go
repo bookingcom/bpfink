@@ -65,6 +65,7 @@ type ProcessHealth int
 const (
 	DIED ProcessHealth = iota
 	WAITING
+	ERROR
 	HEALTHY
 )
 
@@ -133,6 +134,11 @@ func BPFinkRun(t *testing.T, params BPFinkRunParameters) *BPFinkInstance {
 		t.Fatalf("unable to create dir for sudoers monitoring: %s", err)
 	}
 
+	//create broken symlink
+	if err := os.Symlink(path.Join(params.GenericMonitoringDir, "nonExistingFile.txt"), path.Join(params.GenericMonitoringDir, "brokenSymlink.txt")); err != nil {
+		t.Fatalf("unable to create symlink for file: %s", err)
+	}
+
 	configPath := generateConfig(t, params.TestRootDir, params.GenericMonitoringDir, params.BPFinkEbpfProgramm, params.SudoersDir)
 
 	instance.cmd = exec.Command( //nolint:gosec
@@ -168,6 +174,8 @@ func BPFinkRun(t *testing.T, params BPFinkRunParameters) *BPFinkInstance {
 			case DIED:
 				t.Errorf("bpfink died at startup.\nstderr log: %s", stdErrLogPath)
 				return instance
+			case ERROR:
+				t.Errorf("bpfink has errors at startup.\nstderr log: %s", stdErrLogPath)
 			case HEALTHY:
 				return instance
 			}
@@ -185,6 +193,10 @@ func (instance *BPFinkInstance) CheckIsHealthy(t *testing.T) ProcessHealth {
 	line, err := instance.stdErr.ReadString('\n')
 	if err != nil {
 		return WAITING
+	}
+
+	if strings.Contains(line, "error getting file stat for readLinked file") {
+		return ERROR
 	}
 
 	if strings.Contains(line, "bpfink initialized:") {
