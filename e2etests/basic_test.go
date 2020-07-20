@@ -82,7 +82,7 @@ func testCreateDirectory(t *testing.T, w *World) {
 		Message: "generic file deleted",
 	})
 
-	// TODO this exceptation is failing with 'failed to remove consumer' log line 
+	// TODO this exceptation is failing with 'failed to remove consumer' log line
 	// w.FS.MustRemoveFile(t, dirToCreate)
 	// time.Sleep(100 * time.Millisecond)
 	// w.BPFink.ExpectNothing(t)

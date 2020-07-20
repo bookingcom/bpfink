@@ -195,7 +195,7 @@ func (instance *BPFinkInstance) CheckIsHealthy(t *testing.T) ProcessHealth {
 		return WAITING
 	}
 
-	if strings.Contains(line, "error getting file stat for readLinked file") {
+	if strings.Contains(line, "\"level\":\"error\"") {
 		return ERROR
 	}
 
