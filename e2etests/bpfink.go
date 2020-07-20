@@ -3,6 +3,7 @@ package e2etests
 import (
 	"bufio"
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"os/user"
@@ -198,7 +199,7 @@ func (instance *BPFinkInstance) ExpectEvent(t *testing.T, e Event) {
 	time.Sleep(10 * time.Millisecond)
 	line, err := instance.stdErr.ReadString('\n')
 	if err != nil {
-		t.Errorf("unable to read line from the file: %s", err)
+		t.Errorf("Expected [%+v] but unable to read line from the file: %s", e, err)
 		return
 	}
 
@@ -225,6 +226,22 @@ func (instance *BPFinkInstance) ExpectEvent(t *testing.T, e Event) {
 	} else if record.User != currentUser.Username {
 		t.Errorf("actual user record [%s] is not equal to expected [%s]", record.User, currentUser.Username)
 	}
+}
+
+func (instance *BPFinkInstance) ExpectNothing(t *testing.T) {
+	// give the event time to happen (file sync)
+	time.Sleep(10 * time.Millisecond)
+	line, err := instance.stdErr.ReadString('\n')
+	if err == io.EOF {
+		return
+	}
+
+	if err != nil {
+		t.Errorf("Expected EOF but got the error: %s", err)
+		return
+	}
+
+	t.Errorf("Expected EOF but get a log line: %s", line)
 }
 
 func (instance *BPFinkInstance) Shutdown() {

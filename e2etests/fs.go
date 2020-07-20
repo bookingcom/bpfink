@@ -19,6 +19,13 @@ func (fs *FS) MustCreateFile(t *testing.T, filePath string) *os.File {
 	return f
 }
 
+func (fs *FS) MustCreateDir(t *testing.T, dirPath string) {
+	err := os.MkdirAll(dirPath, 0666)
+	if err != nil {
+		t.Fatalf("unable to create directory %s: %s", dirPath, err)
+	}
+}
+
 func (fs *FS) MustRemoveFile(t *testing.T, filePath string) {
 	if err := os.Remove(filePath); err != nil {
 		t.Fatalf("unable to remove file %s: %s", filePath, err)
