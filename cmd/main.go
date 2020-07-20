@@ -256,7 +256,9 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 
 		fileInfo, err := os.Stat(linkPath)
 		if err != nil {
-			logger.Error().Err(err).Msgf("error getting file stat for readLinked file: %v, %v", linkPath, pathFull)
+			if !os.IsNotExist(err) {
+				logger.Error().Err(err).Msgf("error getting file stat for readLinked file: %v, %v", linkPath, pathFull)
+			}
 			return "", nil
 		}
 		fi = fileInfo
