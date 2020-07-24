@@ -22,6 +22,7 @@ type (
 		CloseChannels chan struct{}
 		Excludes      []string
 		Sudoers       []string
+		Metrics       *Metrics
 	}
 	// Register defines register interface for a watcher
 	Register interface {
@@ -232,6 +233,8 @@ func (w *Watcher) Start() error {
 	for {
 		select {
 		case event := <-w.Events:
+			// Send metric to graphite for every event caught, increement by 1
+			w.Metrics.RecordByEventsCaught()
 			switch event.Mode {
 			case dirCreate:
 				w.addInode(&event, true)

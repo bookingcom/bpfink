@@ -57,6 +57,11 @@ type (
 		File  string
 		IsDir bool
 	}
+
+	LogHook struct {
+		metric *pkg.Metrics
+		config Configuration
+	}
 )
 
 const (
@@ -67,6 +72,19 @@ const (
 	puppetFileColumnCount = 2
 	keySize               = 16
 )
+
+// LogHook to send a graphite metric for each log entry
+func (h LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
+	metrics, err := h.config.metrics()
+	if err != nil {
+		return
+	}
+	h.metric = metrics
+	h.metric.RecordByLogTypes(level.String())
+	if err = h.metric.Init(); err != nil {
+		return
+	}
+}
 
 func (c Configuration) logger() (logger zerolog.Logger) {
 	lvlMap := map[string]zerolog.Level{
@@ -79,12 +97,12 @@ func (c Configuration) logger() (logger zerolog.Logger) {
 
 	if c.Debug {
 		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).
-			With().Timestamp().Logger().Level(lvlMap["debug"])
+			With().Timestamp().Logger().Level(lvlMap["debug"]).Hook(LogHook{config: c})
 	} else {
 		// We can't use journald from rsyslog as it is way too complicated to find
 		// a good documentation on both of those projects
 		// logger = zerolog.New(journald.NewJournalDWriter()).Level(lvlMap[c.Level])
-		logger = zerolog.New(os.Stderr).Level(lvlMap[c.Level])
+		logger = zerolog.New(os.Stderr).Level(lvlMap[c.Level]).Hook(LogHook{config: c})
 	}
 	return logger
 }
@@ -273,13 +291,11 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 }
 
 func (c Configuration) metrics() (*pkg.Metrics, error) {
-	logger := c.logger()
 	metrics := &pkg.Metrics{
 		GraphiteHost:    c.MetricsConfig.GraphiteHost,
 		Namespace:       c.MetricsConfig.NameSpace,
 		GraphiteMode:    c.MetricsConfig.GraphiteMode,
 		MetricsInterval: c.MetricsConfig.CollectionInterval,
-		Logger:          logger,
 	}
 
 	hostname, err := os.Hostname()
@@ -308,7 +324,7 @@ func (c Configuration) metrics() (*pkg.Metrics, error) {
 			}
 		}
 		if err = file.Close(); err != nil {
-			logger.Error().Err(err)
+			return nil, err
 		}
 	}
 
@@ -392,6 +408,7 @@ func run() error {
 			Err(err).
 			Msgf("failed to init metrics: %v", err)
 	}
+	metrics.Logger = logger
 
 	if viper.GetInt("graphite-mode") != 0 {
 		metrics.GraphiteMode = viper.GetInt("graphite-mode")
@@ -421,6 +438,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	watcher.Metrics = metrics
 	if err = metrics.Init(); err != nil {
 		return err
 	}
