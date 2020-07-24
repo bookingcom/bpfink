@@ -74,6 +74,26 @@ func (m *Metrics) Init() error {
 	return nil
 }
 
+// RecordByLogTypes sends count of different types of logs
+func (m *Metrics) RecordByLogTypes(logType string) {
+	metricNameByHost := fmt.Sprintf("log_level.%s.by_host.%s.count.hourly", logType, quote(m.Hostname))
+	goMetrics.GetOrRegisterGauge(metricNameByHost, m.EveryHourRegister).Update(int64(1))
+	if m.RoleName != "" {
+		metricNameByRole := fmt.Sprintf("log_level.%s.by_role.%s.%s.count.hourly", logType, quote(m.RoleName), quote(m.Hostname))
+		goMetrics.GetOrRegisterGauge(metricNameByRole, m.EveryHourRegister).Update(int64(1))
+	}
+}
+
+// RecordByEventsCaught sends count of number of events caught by ebpf
+func (m *Metrics) RecordByEventsCaught() {
+	metricNameByHost := fmt.Sprintf("bpf.events_caught.by_host.%s.count.hourly", quote(m.Hostname))
+	goMetrics.GetOrRegisterGauge(metricNameByHost, m.EveryHourRegister).Update(int64(1))
+	if m.RoleName != "" {
+		metricNameByRole := fmt.Sprintf("bpf.events_caught.by_role.%s.%s.count.hourly", quote(m.RoleName), quote(m.Hostname))
+		goMetrics.GetOrRegisterGauge(metricNameByRole, m.EveryHourRegister).Update(int64(1))
+	}
+}
+
 // RecordByInstalledHost graphite metric to show how manay host have bpfink installed
 func (m *Metrics) RecordByInstalledHost() {
 	metricNameByHost := fmt.Sprintf("installed.by_host.%s.count.hourly", quote(m.Hostname))
