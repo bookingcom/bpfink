@@ -51,16 +51,14 @@ type (
 			Generic  []string
 			Excludes []string
 		}
+		LogHook struct {
+			metric *pkg.Metrics
+		}
 	}
 	// filesToMonitor is the struct for watching files, used for generic and sudoers consumers
 	FileInfo struct {
 		File  string
 		IsDir bool
-	}
-
-	LogHook struct {
-		metric *pkg.Metrics
-		config Configuration
 	}
 )
 
@@ -74,16 +72,8 @@ const (
 )
 
 // LogHook to send a graphite metric for each log entry
-func (h LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
-	metrics, err := h.config.metrics()
-	if err != nil {
-		return
-	}
-	h.metric = metrics
-	h.metric.RecordByLogTypes(level.String())
-	if err = h.metric.Init(); err != nil {
-		return
-	}
+func (c Configuration) Run(e *zerolog.Event, level zerolog.Level, msg string) {
+	c.LogHook.metric.RecordByLogTypes(level.String())
 }
 
 func (c Configuration) logger() (logger zerolog.Logger) {
@@ -97,12 +87,12 @@ func (c Configuration) logger() (logger zerolog.Logger) {
 
 	if c.Debug {
 		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).
-			With().Timestamp().Logger().Level(lvlMap["debug"]).Hook(LogHook{config: c})
+			With().Timestamp().Logger().Level(lvlMap["debug"]).Hook(c)
 	} else {
 		// We can't use journald from rsyslog as it is way too complicated to find
 		// a good documentation on both of those projects
 		// logger = zerolog.New(journald.NewJournalDWriter()).Level(lvlMap[c.Level])
-		logger = zerolog.New(os.Stderr).Level(lvlMap[c.Level]).Hook(LogHook{config: c})
+		logger = zerolog.New(os.Stderr).Level(lvlMap[c.Level]).Hook(c)
 	}
 	return logger
 }
@@ -398,16 +388,17 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	metrics, err := config.metrics()
+	if err != nil {
+		return err
+	}
+	config.LogHook.metric = metrics
+
 	logger := config.logger()
 	logger.Debug().Msg("debug mode activated")
 	logger.Debug().Msgf("config: %+v", config)
 
-	metrics, err := config.metrics()
-	if err != nil {
-		logger.Fatal().
-			Err(err).
-			Msgf("failed to init metrics: %v", err)
-	}
 	metrics.Logger = logger
 
 	if viper.GetInt("graphite-mode") != 0 {
@@ -420,6 +411,7 @@ func run() error {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("error starting bpf metrics")
 	}
+
 	key := make([]byte, keySize)
 	if config.Keyfile == "" {
 		if _, err := io.ReadFull(rand.Reader, key); err != nil {
