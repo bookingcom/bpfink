@@ -38,3 +38,7 @@ fmt:
 
 .PHONY: test
 test: cover vet fmt
+
+.PHONY: test-unit
+test-unit:
+	go test -race -v ./pkg/...
