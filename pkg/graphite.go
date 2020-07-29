@@ -76,21 +76,21 @@ func (m *Metrics) Init() error {
 
 // RecordByLogTypes sends count of different types of logs
 func (m *Metrics) RecordByLogTypes(logType string) {
-	metricNameByHost := fmt.Sprintf("log_level.%s.by_host.%s.count.hourly", logType, quote(m.Hostname))
-	goMetrics.GetOrRegisterGauge(metricNameByHost, m.EveryHourRegister).Update(int64(1))
+	metricNameByHost := fmt.Sprintf("log_level.%s.by_host.%s.count.minutely", logType, quote(m.Hostname))
+	goMetrics.GetOrRegisterMeter(metricNameByHost, m.EveryMinuteRegister).Mark(1)
 	if m.RoleName != "" {
-		metricNameByRole := fmt.Sprintf("log_level.%s.by_role.%s.%s.count.hourly", logType, quote(m.RoleName), quote(m.Hostname))
-		goMetrics.GetOrRegisterGauge(metricNameByRole, m.EveryHourRegister).Update(int64(1))
+		metricNameByRole := fmt.Sprintf("log_level.%s.by_role.%s.%s.count.minutely", logType, quote(m.RoleName), quote(m.Hostname))
+		goMetrics.GetOrRegisterMeter(metricNameByRole, m.EveryMinuteRegister).Mark(1)
 	}
 }
 
 // RecordByEventsCaught sends count of number of events caught by ebpf
 func (m *Metrics) RecordByEventsCaught() {
-	metricNameByHost := fmt.Sprintf("bpf.events_caught.by_host.%s.count.hourly", quote(m.Hostname))
-	goMetrics.GetOrRegisterGauge(metricNameByHost, m.EveryHourRegister).Update(int64(1))
+	metricNameByHost := fmt.Sprintf("bpf.events_caught.by_host.%s.count.minutely", quote(m.Hostname))
+	goMetrics.GetOrRegisterMeter(metricNameByHost, m.EveryMinuteRegister).Mark(1)
 	if m.RoleName != "" {
-		metricNameByRole := fmt.Sprintf("bpf.events_caught.by_role.%s.%s.count.hourly", quote(m.RoleName), quote(m.Hostname))
-		goMetrics.GetOrRegisterGauge(metricNameByRole, m.EveryHourRegister).Update(int64(1))
+		metricNameByRole := fmt.Sprintf("bpf.events_caught.by_role.%s.%s.count.minutely", quote(m.RoleName), quote(m.Hostname))
+		goMetrics.GetOrRegisterMeter(metricNameByRole, m.EveryMinuteRegister).Mark(1)
 	}
 }
 
