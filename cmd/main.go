@@ -25,10 +25,10 @@ import (
 // nolint:gochecknoglobals
 var (
 	BuildDate          = "(development)"
-	Once               sync.Once
 	MetricsInitialised struct {
 		metrics *pkg.Metrics
 		err     error
+		Once    sync.Once
 	}
 )
 
@@ -94,20 +94,20 @@ func (c Configuration) logger() (logger zerolog.Logger) {
 		"off":   zerolog.PanicLevel,
 	}
 
-	// Initialize metrics, return logger without hook on error
-	metrics, err := c.metrics()
-	if err != nil {
-		logger = zerolog.New(os.Stderr).Level(lvlMap[c.Level])
-	}
-
 	if c.Debug {
 		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).
-			With().Timestamp().Logger().Level(lvlMap["debug"]).Hook(LogHook{metric: metrics})
+			With().Timestamp().Logger().Level(lvlMap["debug"])
 	} else {
 		// We can't use journald from rsyslog as it is way too complicated to find
 		// a good documentation on both of those projects
 		// logger = zerolog.New(journald.NewJournalDWriter()).Level(lvlMap[c.Level])
-		logger = zerolog.New(os.Stderr).Level(lvlMap[c.Level]).Hook(LogHook{metric: metrics})
+		logger = zerolog.New(os.Stderr).Level(lvlMap[c.Level])
+	}
+
+	// Add hook to logger if there is no error with metrics initialization
+	metrics, err := c.metrics()
+	if err == nil {
+		logger = logger.Hook(LogHook{metric: metrics})
 	}
 	return logger
 }
@@ -297,7 +297,7 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 
 // Singleton function that initializes metrics
 func (c Configuration) metrics() (*pkg.Metrics, error) {
-	Once.Do(func() {
+	MetricsInitialised.Once.Do(func() {
 		logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel)
 		metrics := &pkg.Metrics{
 			GraphiteHost:    c.MetricsConfig.GraphiteHost,
