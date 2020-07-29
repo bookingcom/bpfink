@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	goMetrics "github.com/rcrowley/go-metrics"
@@ -21,7 +22,15 @@ import (
 	"github.com/bookingcom/bpfink/pkg"
 )
 
-var BuildDate = "(development)" //nolint:gochecknoglobals
+// nolint:gochecknoglobals
+var (
+	BuildDate          = "(development)"
+	Once               sync.Once
+	MetricsInitialised struct {
+		metrics *pkg.Metrics
+		err     error
+	}
+)
 
 type (
 	// Configuration Struct for bpfink config
@@ -51,14 +60,14 @@ type (
 			Generic  []string
 			Excludes []string
 		}
-		LogHook struct {
-			metric *pkg.Metrics
-		}
 	}
 	// filesToMonitor is the struct for watching files, used for generic and sudoers consumers
 	FileInfo struct {
 		File  string
 		IsDir bool
+	}
+	LogHook struct {
+		metric *pkg.Metrics
 	}
 )
 
@@ -72,8 +81,8 @@ const (
 )
 
 // LogHook to send a graphite metric for each log entry
-func (c Configuration) Run(e *zerolog.Event, level zerolog.Level, msg string) {
-	c.LogHook.metric.RecordByLogTypes(level.String())
+func (h LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
+	h.metric.RecordByLogTypes(level.String())
 }
 
 func (c Configuration) logger() (logger zerolog.Logger) {
@@ -85,14 +94,20 @@ func (c Configuration) logger() (logger zerolog.Logger) {
 		"off":   zerolog.PanicLevel,
 	}
 
+	// Initialize metrics, return logger without hook on error
+	metrics, err := c.metrics()
+	if err != nil {
+		logger = zerolog.New(os.Stderr).Level(lvlMap[c.Level])
+	}
+
 	if c.Debug {
 		logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).
-			With().Timestamp().Logger().Level(lvlMap["debug"]).Hook(c)
+			With().Timestamp().Logger().Level(lvlMap["debug"]).Hook(LogHook{metric: metrics})
 	} else {
 		// We can't use journald from rsyslog as it is way too complicated to find
 		// a good documentation on both of those projects
 		// logger = zerolog.New(journald.NewJournalDWriter()).Level(lvlMap[c.Level])
-		logger = zerolog.New(os.Stderr).Level(lvlMap[c.Level]).Hook(c)
+		logger = zerolog.New(os.Stderr).Level(lvlMap[c.Level]).Hook(LogHook{metric: metrics})
 	}
 	return logger
 }
@@ -280,48 +295,56 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 	return "", nil
 }
 
+// Singleton function that initializes metrics
 func (c Configuration) metrics() (*pkg.Metrics, error) {
-	metrics := &pkg.Metrics{
-		GraphiteHost:    c.MetricsConfig.GraphiteHost,
-		Namespace:       c.MetricsConfig.NameSpace,
-		GraphiteMode:    c.MetricsConfig.GraphiteMode,
-		MetricsInterval: c.MetricsConfig.CollectionInterval,
-	}
+	Once.Do(func() {
+		logger := zerolog.New(os.Stderr).Level(zerolog.DebugLevel)
+		metrics := &pkg.Metrics{
+			GraphiteHost:    c.MetricsConfig.GraphiteHost,
+			Namespace:       c.MetricsConfig.NameSpace,
+			GraphiteMode:    c.MetricsConfig.GraphiteMode,
+			MetricsInterval: c.MetricsConfig.CollectionInterval,
+			Logger:          logger,
+		}
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		return nil, err
-	}
-
-	metrics.Hostname = hostname
-
-	// determine server Role name
-	if c.MetricsConfig.HostRolePath != "" {
-		file, err := os.Open(c.MetricsConfig.HostRolePath)
+		hostname, err := os.Hostname()
 		if err != nil {
-			return nil, err
+			MetricsInitialised.metrics, MetricsInitialised.err = nil, err
+			return
 		}
+		metrics.Hostname = hostname
 
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			tokens := strings.Split(scanner.Text(), c.MetricsConfig.HostRoleToken)
-			if len(tokens) < puppetFileColumnCount {
-				continue
+		// determine server Role name
+		if c.MetricsConfig.HostRolePath != "" {
+			file, err := os.Open(c.MetricsConfig.HostRolePath)
+			if err != nil {
+				MetricsInitialised.metrics, MetricsInitialised.err = nil, err
+				return
 			}
-			if tokens[0] == c.MetricsConfig.HostRoleKey {
-				metrics.RoleName = tokens[1]
-				break
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				tokens := strings.Split(scanner.Text(), c.MetricsConfig.HostRoleToken)
+				if len(tokens) < puppetFileColumnCount {
+					continue
+				}
+				if tokens[0] == c.MetricsConfig.HostRoleKey {
+					metrics.RoleName = tokens[1]
+					break
+				}
+			}
+			if err = file.Close(); err != nil {
+				logger.Error().Err(err)
+				MetricsInitialised.metrics, MetricsInitialised.err = nil, err
+				return
 			}
 		}
-		if err = file.Close(); err != nil {
-			return nil, err
-		}
-	}
+		metrics.EveryHourRegister = goMetrics.NewPrefixedRegistry(metrics.Namespace)
+		metrics.EveryMinuteRegister = goMetrics.NewPrefixedRegistry(metrics.Namespace)
 
-	metrics.EveryHourRegister = goMetrics.NewPrefixedRegistry(metrics.Namespace)
-	metrics.EveryMinuteRegister = goMetrics.NewPrefixedRegistry(metrics.Namespace)
+		MetricsInitialised.metrics, MetricsInitialised.err = metrics, nil
+	})
 
-	return metrics, nil
+	return MetricsInitialised.metrics, MetricsInitialised.err
 }
 
 func (c Configuration) watcher() (*pkg.Watcher, error) {
@@ -388,18 +411,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
-
-	metrics, err := config.metrics()
-	if err != nil {
-		return err
-	}
-	config.LogHook.metric = metrics
-
 	logger := config.logger()
 	logger.Debug().Msg("debug mode activated")
 	logger.Debug().Msgf("config: %+v", config)
 
-	metrics.Logger = logger
+	metrics, err := config.metrics()
+	if err != nil {
+		logger.Fatal().Err(err).Msgf("failed to init metrics: %v", err)
+	}
 
 	if viper.GetInt("graphite-mode") != 0 {
 		metrics.GraphiteMode = viper.GetInt("graphite-mode")
@@ -411,7 +430,6 @@ func run() error {
 	if err != nil {
 		logger.Fatal().Err(err).Msg("error starting bpf metrics")
 	}
-
 	key := make([]byte, keySize)
 	if config.Keyfile == "" {
 		if _, err := io.ReadFull(rand.Reader, key); err != nil {

@@ -42,9 +42,10 @@ func TestEventsCaughtMetric(t *testing.T) {
 	m := InitMetrics()
 	defer m.EveryMinuteRegister.UnregisterAll()
 	m.RecordByEventsCaught()
+	m.RecordByEventsCaught()
 
 	testIfMetricsAreExpected(t, m.EveryMinuteRegister, map[string]float64{
-		"security.piv.bpfink.bpf.events_caught.by_host.test_host.count.minutely": 1,
+		"security.piv.bpfink.bpf.events_caught.by_host.test_host.count.minutely": 2,
 	})
 }
 
