@@ -50,7 +50,7 @@ const (
 	pdoDentryOpen   = "pdo_dentry_open"
 )
 
-var defaultRolename = "unknown_role"
+var defaultRolename = "unknown_role" // nolint:gochecknoglobals
 
 // Init method to start up graphite metrics
 func (m *Metrics) Init() error {
