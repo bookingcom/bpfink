@@ -119,8 +119,8 @@ func (m *Metrics) RecordBPFMetrics() error {
 				if m.RoleName != "" {
 					defaultRolename = m.RoleName
 				}
-				vfsHit := fmt.Sprintf("bpf.by_role.%s.%s.kprobe.hit_rate.minutely", quote(defaultRolename), key)
-				vfsMiss := fmt.Sprintf("bpf.by_role.%s.%s.kprobe.miss_rate.minutely", quote(defaultRolename), key)
+				vfsHit := fmt.Sprintf("bpf.by_role.%s.%s.%s.kprobe.hit_rate.minutely", quote(defaultRolename), quote(m.Hostname), key)
+				vfsMiss := fmt.Sprintf("bpf.by_role.%s.%s.%s.kprobe.miss_rate.minutely", quote(defaultRolename), quote(m.Hostname), key)
 				goMetrics.GetOrRegisterGauge(vfsHit, m.EveryMinuteRegister).Update(BPFMetrics[key].hitRate)
 				goMetrics.GetOrRegisterGauge(vfsMiss, m.EveryMinuteRegister).Update(BPFMetrics[key].missedRate)
 			}
