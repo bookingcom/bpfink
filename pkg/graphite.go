@@ -50,6 +50,8 @@ const (
 	pdoDentryOpen   = "pdo_dentry_open"
 )
 
+var defaultRolename = "unknown_role" // nolint:gochecknoglobals
+
 // Init method to start up graphite metrics
 func (m *Metrics) Init() error {
 	m.missedCount = make(map[string]int64)
@@ -76,32 +78,32 @@ func (m *Metrics) Init() error {
 
 // RecordByLogTypes sends count of different types of logs
 func (m *Metrics) RecordByLogTypes(logType string) {
-	metricNameByHost := fmt.Sprintf("log_level.%s.by_host.%s.count.minutely", logType, quote(m.Hostname))
-	goMetrics.GetOrRegisterMeter(metricNameByHost, m.EveryMinuteRegister).Mark(1)
+	// If rolename is not empty, override the defaultRolename
 	if m.RoleName != "" {
-		metricNameByRole := fmt.Sprintf("log_level.%s.by_role.%s.%s.count.minutely", logType, quote(m.RoleName), quote(m.Hostname))
-		goMetrics.GetOrRegisterMeter(metricNameByRole, m.EveryMinuteRegister).Mark(1)
+		defaultRolename = m.RoleName
 	}
+	metricName := fmt.Sprintf("log_level.%s.by_role.%s.%s.count.minutely", logType, quote(defaultRolename), quote(m.Hostname))
+	goMetrics.GetOrRegisterCounter(metricName, m.EveryMinuteRegister).Inc(1)
 }
 
 // RecordByEventsCaught sends count of number of events caught by ebpf
 func (m *Metrics) RecordByEventsCaught() {
-	metricNameByHost := fmt.Sprintf("bpf.events_caught.by_host.%s.count.minutely", quote(m.Hostname))
-	goMetrics.GetOrRegisterMeter(metricNameByHost, m.EveryMinuteRegister).Mark(1)
+	// If rolename is not empty, override the defaultRolename
 	if m.RoleName != "" {
-		metricNameByRole := fmt.Sprintf("bpf.events_caught.by_role.%s.%s.count.minutely", quote(m.RoleName), quote(m.Hostname))
-		goMetrics.GetOrRegisterMeter(metricNameByRole, m.EveryMinuteRegister).Mark(1)
+		defaultRolename = m.RoleName
 	}
+	metricName := fmt.Sprintf("bpf.events_caught.by_role.%s.%s.count.minutely", quote(defaultRolename), quote(m.Hostname))
+	goMetrics.GetOrRegisterCounter(metricName, m.EveryMinuteRegister).Inc(1)
 }
 
 // RecordByInstalledHost graphite metric to show how manay host have bpfink installed
 func (m *Metrics) RecordByInstalledHost() {
-	metricNameByHost := fmt.Sprintf("installed.by_host.%s.count.hourly", quote(m.Hostname))
-	goMetrics.GetOrRegisterGauge(metricNameByHost, m.EveryHourRegister).Update(int64(1))
+	// If rolename is not empty, override the defaultRolename
 	if m.RoleName != "" {
-		metricNameByRole := fmt.Sprintf("installed.by_role.%s.%s.count.hourly", quote(m.RoleName), quote(m.Hostname))
-		goMetrics.GetOrRegisterGauge(metricNameByRole, m.EveryHourRegister).Update(int64(1))
+		defaultRolename = m.RoleName
 	}
+	metricName := fmt.Sprintf("installed.by_role.%s.%s.count.hourly", quote(defaultRolename), quote(m.Hostname))
+	goMetrics.GetOrRegisterGauge(metricName, m.EveryHourRegister).Update(int64(1))
 }
 
 // RecordBPFMetrics send metrics for BPF hits and misses per probe
@@ -113,16 +115,14 @@ func (m *Metrics) RecordBPFMetrics() error {
 				m.Logger.Error().Err(err).Msg("error fetching bpf metrics")
 			}
 			for key := range BPFMetrics {
-				vfsHit := fmt.Sprintf("bpf.by_host.%s.%s.kprobe.hit_rate.minutely", quote(m.Hostname), key)
-				vfsMiss := fmt.Sprintf("bpf.by_host.%s.%s.kprobe.miss_rate.minutely", quote(m.Hostname), key)
+				// If rolename is not empty, override the defaultRolename
+				if m.RoleName != "" {
+					defaultRolename = m.RoleName
+				}
+				vfsHit := fmt.Sprintf("bpf.by_role.%s.%s.kprobe.hit_rate.minutely", quote(defaultRolename), key)
+				vfsMiss := fmt.Sprintf("bpf.by_role.%s.%s.kprobe.miss_rate.minutely", quote(defaultRolename), key)
 				goMetrics.GetOrRegisterGauge(vfsHit, m.EveryMinuteRegister).Update(BPFMetrics[key].hitRate)
 				goMetrics.GetOrRegisterGauge(vfsMiss, m.EveryMinuteRegister).Update(BPFMetrics[key].missedRate)
-				if m.RoleName != "" {
-					vfsHitByRole := fmt.Sprintf("bpf.by_role.%s.%s.kprobe.hit_rate.minutely", quote(m.RoleName), key)
-					vfsMissByRole := fmt.Sprintf("bpf.by_role.%s.%s.kprobe.miss_rate.minutely", quote(m.RoleName), key)
-					goMetrics.GetOrRegisterGauge(vfsHitByRole, m.EveryMinuteRegister).Update(BPFMetrics[key].hitRate)
-					goMetrics.GetOrRegisterGauge(vfsMissByRole, m.EveryMinuteRegister).Update(BPFMetrics[key].missedRate)
-				}
 			}
 		}
 	}()

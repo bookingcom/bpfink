@@ -23,8 +23,8 @@ func TestLogMetric(t *testing.T) {
 	m.RecordByLogTypes("error")
 
 	testIfMetricsAreExpected(t, m.EveryMinuteRegister, map[string]float64{
-		"security.piv.bpfink.log_level.warn.by_host.test_host.count.minutely":  1,
-		"security.piv.bpfink.log_level.error.by_host.test_host.count.minutely": 2,
+		"security.piv.bpfink.log_level.warn.by_role.unknown_role.test_host.count.minutely":  1,
+		"security.piv.bpfink.log_level.error.by_role.unknown_role.test_host.count.minutely": 2,
 	})
 }
 
@@ -34,7 +34,7 @@ func TestInstalledHostMetric(t *testing.T) {
 	m.RecordByInstalledHost()
 
 	testIfMetricsAreExpected(t, m.EveryHourRegister, map[string]float64{
-		"security.piv.bpfink.installed.by_host.test_host.count.hourly": 1,
+		"security.piv.bpfink.installed.by_role.unknown_role.test_host.count.hourly": 1,
 	})
 }
 
@@ -45,7 +45,7 @@ func TestEventsCaughtMetric(t *testing.T) {
 	m.RecordByEventsCaught()
 
 	testIfMetricsAreExpected(t, m.EveryMinuteRegister, map[string]float64{
-		"security.piv.bpfink.bpf.events_caught.by_host.test_host.count.minutely": 2,
+		"security.piv.bpfink.bpf.events_caught.by_role.unknown_role.test_host.count.minutely": 2,
 	})
 }
 
@@ -65,7 +65,7 @@ func testIfMetricsAreExpected(t *testing.T, registry goMetrics.Registry, expecte
 				metricValueFloat64 = float64(metric.Value())
 			case goMetrics.GaugeFloat64:
 				metricValueFloat64 = metric.Value()
-			case goMetrics.Meter:
+			case goMetrics.Counter:
 				metricValueFloat64 = float64(metric.Count())
 			default:
 				t.Fatalf("%s has unexpected type: %T", metricName, metric)
