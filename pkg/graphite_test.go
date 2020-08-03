@@ -49,6 +49,16 @@ func TestEventsCaughtMetric(t *testing.T) {
 	})
 }
 
+func TestVersionMetric(t *testing.T) {
+	m := InitMetrics()
+	defer m.EveryHourRegister.UnregisterAll()
+	m.RecordVersion("0.1.12")
+
+	testIfMetricsAreExpected(t, m.EveryHourRegister, map[string]float64{
+		"security.piv.bpfink.installed.by_role.unknown_role.test_host.version.hourly": 112,
+	})
+}
+
 func testIfMetricsAreExpected(t *testing.T, registry goMetrics.Registry, expectedMetrics map[string]float64) {
 	actualMetrics := registry.GetAll()
 	if len(expectedMetrics) != len(actualMetrics) {
