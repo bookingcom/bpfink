@@ -1,6 +1,7 @@
 BINARY = bpfink
-LD_FLAGS ?= -w -s -X main.BuildDate=$(shell date +%F)
+LD_FLAGS ?= -w -s -X main.BuildDate=$(shell date +%F) -X main.Version=$(BINARY_VERSION)
 PREFIX ?= /usr
+BINARY_VERSION ?=
 
 all: build
 build: $(BINARY)

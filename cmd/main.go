@@ -25,6 +25,7 @@ import (
 // nolint:gochecknoglobals
 var (
 	BuildDate          = "(development)"
+	Version            string
 	MetricsInitialised struct {
 		metrics *pkg.Metrics
 		err     error
@@ -82,7 +83,10 @@ const (
 
 // LogHook to send a graphite metric for each log entry
 func (h LogHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
+	// Send log type metric
 	h.metric.RecordByLogTypes(level.String())
+	// Send version in each log entry
+	e.Str("version", Version)
 }
 
 func (c Configuration) logger() (logger zerolog.Logger) {
@@ -426,6 +430,8 @@ func run() error {
 
 	// increment the host count by 1
 	metrics.RecordByInstalledHost()
+	// send version metric
+	metrics.RecordVersion(Version)
 	err = metrics.RecordBPFMetrics()
 	if err != nil {
 		logger.Fatal().Err(err).Msg("error starting bpf metrics")

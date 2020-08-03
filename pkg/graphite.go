@@ -96,6 +96,18 @@ func (m *Metrics) RecordByEventsCaught() {
 	goMetrics.GetOrRegisterCounter(metricName, m.EveryMinuteRegister).Inc(1)
 }
 
+// RecordVersion graphite metric to show the version of bpfink running on each host
+func (m *Metrics) RecordVersion(version string) {
+	// If rolename is not empty, override the defaultRolename
+	if m.RoleName != "" {
+		defaultRolename = m.RoleName
+	}
+
+	versionInt, _ := strconv.ParseInt(strings.Replace(version, ".", "", -1), 10, 64)
+	metricName := fmt.Sprintf("installed.by_role.%s.%s.version.hourly", quote(defaultRolename), quote(m.Hostname))
+	goMetrics.GetOrRegisterGauge(metricName, m.EveryHourRegister).Update(versionInt)
+}
+
 // RecordByInstalledHost graphite metric to show how manay host have bpfink installed
 func (m *Metrics) RecordByInstalledHost() {
 	// If rolename is not empty, override the defaultRolename
