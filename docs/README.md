@@ -16,7 +16,7 @@ of state for dedicated structures. For the moment there's only __4 types of stru
 - users
 - access
 - generic
-- sudoers
+- genericDiff
 
 For each of those the internal structure is bit different, but the way it is logged 
 is the same. Basically, when detecting a change bpfink will logs __3 different information__:
@@ -24,7 +24,7 @@ is the same. Basically, when detecting a change bpfink will logs __3 different i
 - what has been added, under the `add` JSON key
 - what has been deleted, under the `del` JSON key
 - what is the current state, which as a different key depending on the consumer: 
-`users`, `generic`, `access`, `sudoers`.
+`users`, `generic`, `access`, `genericDiff`.
 
 In order to avoid complex logging logic, if an internal part of a structure has
 changed, this structure is logged both as `add` and `del`, the difference can
@@ -103,16 +103,18 @@ In this example the file dynamicPathFile was created.
 {
 	"level": "warn",
 	"add": {
-		"Sudoers": ["root ALL = (ALL:ALL) ALL"]
+		"Content": ["options timeout:2"]
 	},
 	"del": {
-		"Sudoers": []
+		"Content": []
 	},
-	"file": "bpfink.sudoers",
-	"processName": "-bash ",
+	"file": "/etc/resolv.conf",
+	"processName": "bash",
 	"user": "root",
-	"message": "Sudoers file modified"
+	"version": "0.6.51",
+	"message": "Critical Generic file modified"
 }
 ```
 
-In the above example the file bpfink.sudoers was modified.
+In the above example the file /etc/resolv.conf was modified by adding an option. Instead of the hash as seen in generic consumer,
+the diff of the content is logged.

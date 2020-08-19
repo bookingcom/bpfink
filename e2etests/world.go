@@ -41,7 +41,6 @@ func SetUp(t *testing.T) *World {
 		BPFinkEbpfProgramm:   *executionParams.ebpfObjPath,
 		TestRootDir:          filepath.Join(testRootDir),
 		GenericMonitoringDir: filepath.Join(testRootDir, "root"),
-		SudoersDir:           filepath.Join(testRootDir, "sudoers"),
 	}
 
 	bpfink := BPFinkRun(t, bpfinkParams)
@@ -57,7 +56,6 @@ func SetUp(t *testing.T) *World {
 		BPFink: bpfink,
 		FS: &FS{
 			GenericMonitoringDir: bpfinkParams.GenericMonitoringDir,
-			SudoersDir:           bpfinkParams.SudoersDir,
 		},
 	}
 }

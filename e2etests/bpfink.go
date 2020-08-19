@@ -26,7 +26,6 @@ type BPFinkRunParameters struct {
 	BPFinkEbpfProgramm   string
 	TestRootDir          string
 	GenericMonitoringDir string
-	SudoersDir           string
 }
 
 type baseFileLogRecord struct {
@@ -45,13 +44,13 @@ type genericFileLogRecord struct { // nolint: deadcode, unused
 	}
 }
 
-type sudoersFileLogRecord struct { // nolint: deadcode, unused
+type genericDiffFileLogRecord struct { // nolint: deadcode, unused
 	baseFileLogRecord
 	Add struct {
-		Sudoers []string
+		Content []string
 	}
 	Del struct {
-		Sudoers []string
+		Content []string
 	}
 }
 
@@ -69,7 +68,7 @@ const (
 	HEALTHY
 )
 
-func generateConfig(t *testing.T, testRootDir, genericDir string, ebpfProgrammPath string, sudoersDir string) string {
+func generateConfig(t *testing.T, testRootDir, genericDir string, ebpfProgrammPath string) string {
 	tmplt := strings.TrimSpace(`
 level = "info"
 database = "{{.TestRootDir}}/bpfink.db"
@@ -79,7 +78,7 @@ bcc = "{{.EBPfProgrammPath}}"
 [consumers]
 root = "/"
 generic = ["{{.GenericMonitoringDir}}"]
-sudoers = ["{{.SudoersDir}}"]
+genericDiff = ["{{.GenericMonitoringDir}}/test-generic"]
 `)
 
 	outConfigPath := path.Join(testRootDir, "agent.toml")
@@ -93,8 +92,7 @@ sudoers = ["{{.SudoersDir}}"]
 		TestRootDir          string
 		GenericMonitoringDir string
 		EBPfProgrammPath     string
-		SudoersDir           string
-	}{testRootDir, genericDir, ebpfProgrammPath, sudoersDir})
+	}{testRootDir, genericDir, ebpfProgrammPath})
 
 	if err != nil {
 		t.Fatalf("failed to generate config file %s: %s", outConfigPath, err)
@@ -130,8 +128,8 @@ func BPFinkRun(t *testing.T, params BPFinkRunParameters) *BPFinkInstance {
 		t.Fatalf("unable to create dir for generic monitoring: %s", err)
 	}
 
-	if err = os.Mkdir(params.SudoersDir, 0666); err != nil {
-		t.Fatalf("unable to create dir for sudoers monitoring: %s", err)
+	if err = os.Mkdir(path.Join(params.GenericMonitoringDir, "test-generic"), 0666); err != nil {
+		t.Fatalf("unable to create dir for generic file diff monitoring: %s", err)
 	}
 
 	//create broken symlink
@@ -139,7 +137,7 @@ func BPFinkRun(t *testing.T, params BPFinkRunParameters) *BPFinkInstance {
 		t.Fatalf("unable to create symlink for file: %s", err)
 	}
 
-	configPath := generateConfig(t, params.TestRootDir, params.GenericMonitoringDir, params.BPFinkEbpfProgramm, params.SudoersDir)
+	configPath := generateConfig(t, params.TestRootDir, params.GenericMonitoringDir, params.BPFinkEbpfProgramm)
 
 	instance.cmd = exec.Command( //nolint:gosec
 		params.BPFinkBinPath,

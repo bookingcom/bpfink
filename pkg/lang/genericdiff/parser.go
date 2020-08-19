@@ -1,4 +1,4 @@
-package sudoers
+package genericdiff
 
 import (
 	"bufio"
@@ -7,16 +7,16 @@ import (
 	"github.com/rs/zerolog"
 )
 
-//Sudoer struct that represents permission in the suoders file
-type Sudoer struct {
+//Diff struct that represents permission in the suoders file
+type Diff struct {
 	Rule string
 }
 
-//Parser struct to handle parsing of sudoers file
+//Parser struct to handle parsing of generic file with diff
 type Parser struct {
 	zerolog.Logger
-	FileName string
-	Sudoers  []Sudoer
+	FileName    string
+	GenericDiff []Diff
 }
 
 //Parse func that parses a passwd file to collect users
@@ -38,7 +38,7 @@ func (p *Parser) Parse() error {
 	}
 
 	if stat.Size() == 0 {
-		p.Sudoers = append(p.Sudoers, Sudoer{
+		p.GenericDiff = append(p.GenericDiff, Diff{
 			Rule: " ",
 		})
 	}
@@ -48,8 +48,7 @@ func (p *Parser) Parse() error {
 		if len(line) == 0 || string(line[0]) == "#" {
 			continue
 		}
-		p.Logger.Debug().Msgf("Sudoers entries are %v", line)
-		p.Sudoers = append(p.Sudoers, Sudoer{
+		p.GenericDiff = append(p.GenericDiff, Diff{
 			Rule: line,
 		})
 	}

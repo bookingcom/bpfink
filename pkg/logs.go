@@ -19,8 +19,8 @@ type (
 	LogAccess Access
 	// LogGeneric type wrapper
 	LogGeneric GenericState
-	//LogSudoers type wrapper
-	LogSudoers Sudoers
+	//LogGenericDiff type wrapper
+	LogGenericDiff GenericDiff
 )
 
 // MarshalZerologObject method to wrap a logger
@@ -73,7 +73,7 @@ func (lg LogGeneric) MarshalZerologObject(e *zerolog.Event) {
 	e.Hex("next", lg.next.Contents) // update to aes-gcm
 }
 
-//MarshalZerologObject method to marshal sudoers object
-func (ls LogSudoers) MarshalZerologObject(e *zerolog.Event) {
-	e.Strs("Sudoers", ls.Rule)
+//MarshalZerologObject method to marshal generic diff object
+func (lgd LogGenericDiff) MarshalZerologObject(e *zerolog.Event) {
+	e.Strs("Content", lgd.Rule)
 }

@@ -12,7 +12,7 @@ func TestBPfink(t *testing.T) {
 	world := SetUp(t)
 	defer world.TearDown()
 	t.Run("generic file create/modify/delete", world.SubTest(testCreateGenericFile))
-	t.Run("sudoers file create", world.SubTest(testCreateSudoersDir))
+	t.Run("generic file with diff create/modify/delete", world.SubTest(testCreateGenericDiffFile))
 	t.Run("generic file in newly created dir", world.SubTest(testCreateDirectory))
 
 }
@@ -37,23 +37,23 @@ func testCreateGenericFile(t *testing.T, w *World) {
 	})
 }
 
-func testCreateSudoersDir(t *testing.T, w *World) {
-	sudoersFile := path.Join(w.FS.SudoersDir, "testSudoers")
-	f := w.FS.MustCreateFile(t, sudoersFile)
+func testCreateGenericDiffFile(t *testing.T, w *World) {
+	genericDiffFile := path.Join(w.FS.GenericMonitoringDir, "test-generic", "test-generic-diff.txt")
+	f := w.FS.MustCreateFile(t, genericDiffFile)
 	w.BPFink.ExpectEvent(t, Event{
-		File:    sudoersFile,
-		Message: "Sudoers file created",
+		File:    genericDiffFile,
+		Message: "Critical Generic file created",
 	})
 	f.WriteString("root ALL=(ALL) ALL")
 	w.BPFink.ExpectEvent(t, Event{
-		File:    sudoersFile,
-		Message: "Sudoers file modified",
+		File:    genericDiffFile,
+		Message: "Critical Generic file modified",
 	})
 
-	w.FS.MustRemoveFile(t, sudoersFile)
+	w.FS.MustRemoveFile(t, genericDiffFile)
 	w.BPFink.ExpectEvent(t, Event{
-		File:    sudoersFile,
-		Message: "Sudoers file deleted",
+		File:    genericDiffFile,
+		Message: "Critical Generic file deleted",
 	})
 }
 

@@ -334,97 +334,97 @@ func (gs *GenericState) Load(db *AgentDB) error {
 	return err
 }
 
-/* --------------------------------- SUDOERS --------------------------------- */
+/* --------------------------------- GENERIC FILE DIFF --------------------------------- */
 type (
-	//SudoersState struct keeps track of state changes based on SudoersListener struct and methods
-	SudoersState struct {
-		*SudoersListener
-		current, next Sudoers
+	//GenericDiffState struct keeps track of state changes based on GenericDiffListener struct and methods
+	GenericDiffState struct {
+		*GenericDiffListener
+		current, next GenericDiff
 	}
 )
 
-//Parse calls parse(), and update new SudoersState
-func (ss *SudoersState) Parse() (State, error) {
-	switch sudoers, err := ss.parse(); {
+//Parse calls parse(), and update new GenericDiffState
+func (gds *GenericDiffState) Parse() (State, error) {
+	switch genericDiff, err := gds.parse(); {
 	case err == nil:
-		ss.next = sudoers
-		return ss, nil
+		gds.next = genericDiff
+		return gds, nil
 	case IsNotExist(err): // file deleted
-		return ss, nil
+		return gds, nil
 	default:
 		return nil, err
 	}
 }
 
-//Changed checks if the new SudoersState instance is different from old SudoersState instance
-func (ss *SudoersState) Changed() bool {
-	if ss.next.IsEmpty() && !ss.current.IsEmpty() {
+//Changed checks if the new GenericDiffState instance is different from old GenericDiffState instance
+func (gds *GenericDiffState) Changed() bool {
+	if gds.next.IsEmpty() && !gds.current.IsEmpty() {
 		return true
 	}
-	add, del := sudoersDiff(ss.current, ss.next)
+	add, del := findGenericDiff(gds.current, gds.next)
 	return !add.IsEmpty() || !del.IsEmpty()
 }
 
-//Created checks if the current SudoersState has been created
-func (ss *SudoersState) Created() bool { return ss.current.IsEmpty() }
+//Created checks if the current GenericDiffState has been created
+func (gds *GenericDiffState) Created() bool { return gds.current.IsEmpty() }
 
 //Notify is the method to notify of a change in state
-func (ss *SudoersState) Notify(cmd string, user string) {
-	add, del := sudoersDiff(ss.current, ss.next)
-	if ss.current.IsEmpty() {
-		ss.Warn().
-			Object("add", LogSudoers(add)).
-			Object("del", LogSudoers(del)).
-			Str("file", ss.sudoers).
+func (gds *GenericDiffState) Notify(cmd string, user string) {
+	add, del := findGenericDiff(gds.current, gds.next)
+	if gds.current.IsEmpty() {
+		gds.Warn().
+			Object("add", LogGenericDiff(add)).
+			Object("del", LogGenericDiff(del)).
+			Str("file", gds.genericDiff).
 			Str("processName", cmd).
 			Str("user", user).
-			Msg("Sudoers file created")
+			Msg("Critical Generic file created")
 		return
 	}
-	if ss.next.IsEmpty() {
-		ss.Warn().
-			Object("add", LogSudoers(add)).
-			Object("del", LogSudoers(del)).
-			Str("file", ss.sudoers).
+	if gds.next.IsEmpty() {
+		gds.Warn().
+			Object("add", LogGenericDiff(add)).
+			Object("del", LogGenericDiff(del)).
+			Str("file", gds.genericDiff).
 			Str("processName", cmd).
 			Str("user", user).
-			Msg("Sudoers file deleted")
+			Msg("Critical Generic file deleted")
 		return
 	}
-	ss.Warn().
-		Object("add", LogSudoers(add)).
-		Object("del", LogSudoers(del)).
-		Str("file", ss.sudoers).
+	gds.Warn().
+		Object("add", LogGenericDiff(add)).
+		Object("del", LogGenericDiff(del)).
+		Str("file", gds.genericDiff).
 		Str("processName", cmd).
 		Str("user", user).
-		Msg("Sudoers file modified")
+		Msg("Critical Generic file modified")
 }
 
 //Teardown is the reset method when a change has been detected. Set new state to old state, and reload.
-func (ss *SudoersState) Teardown() error {
-	ss.current = ss.next
-	ss.next = Sudoers{}
+func (gds *GenericDiffState) Teardown() error {
+	gds.current = gds.next
+	gds.next = GenericDiff{}
 	return nil
 }
 
 //Register returns a list of files to watch for changes
-func (ss *SudoersState) Register() []string {
-	return ss.SudoersListener.Register()
+func (gds *GenericDiffState) Register() []string {
+	return gds.GenericDiffListener.Register()
 }
 
 //Save commits a state to the local DB instance.
-func (ss *SudoersState) Save(db *AgentDB) error {
-	ss.Debug().Object("sudoers", LogSudoers(ss.next)).Msg("Save sudoers file")
-	return db.SaveSudoers(ss.next)
+func (gds *GenericDiffState) Save(db *AgentDB) error {
+	gds.Debug().Object("generic diff", LogGenericDiff(gds.next)).Msg("Save critical generic file")
+	return db.SaveGenericDiff(gds.next)
 }
 
 //Load reads in current state from local db instance
-func (ss *SudoersState) Load(db *AgentDB) (err error) {
-	sudoers, err := db.LoadSudoers()
+func (gds *GenericDiffState) Load(db *AgentDB) (err error) {
+	genericDiff, err := db.LoadGenericDiff()
 	if err != nil {
 		return err
 	}
-	ss.current = sudoers
+	gds.current = genericDiff
 	return err
 }
 

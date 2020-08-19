@@ -7,7 +7,6 @@ import (
 
 type FS struct {
 	GenericMonitoringDir string
-	SudoersDir           string
 }
 
 func (fs *FS) MustCreateFile(t *testing.T, filePath string) *os.File {

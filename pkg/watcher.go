@@ -21,7 +21,7 @@ type (
 		consumers     Consumers
 		CloseChannels chan struct{}
 		Excludes      []string
-		Sudoers       []string
+		GenericDiff   []string
 		Metrics       *Metrics
 	}
 	// Register defines register interface for a watcher
@@ -137,16 +137,16 @@ func (w *Watcher) addInode(event *Event, isdir bool) {
 			return
 		}
 	}
-	var isSudoerFile bool
-	for _, sudoersFile := range w.Sudoers {
-		if strings.HasPrefix(event.Path, sudoersFile) {
-			isSudoerFile = true
+	var isGenericDiffFile bool
+	for _, genericDiffFile := range w.GenericDiff {
+		if strings.HasPrefix(event.Path, genericDiffFile) {
+			isGenericDiffFile = true
 		}
 	}
-	if isSudoerFile {
-		state := &SudoersState{
-			SudoersListener: NewSudoersListener(func(s *SudoersListener) {
-				s.sudoers = event.Path
+	if isGenericDiffFile {
+		state := &GenericDiffState{
+			GenericDiffListener: NewGenericDiffListener(func(s *GenericDiffListener) {
+				s.genericDiff = event.Path
 				s.Logger = w.Logger
 			}),
 		}
