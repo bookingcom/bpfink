@@ -70,7 +70,7 @@ different consumers for four different use cases:
 it also watches for user home directory to detect ssh key injection.
 - Access consumer, just watch __/access.conf__
 - Generic consumer, watches for any existing or new files/directories for any given parent directory
-- Sudoers consumer, watches __/sudoers__ and all files under __/etc/sudoers.d__ directory.
+- Generic diff consumer, same as generic consumer, but provides diff of content instead of hashes 
 
 All consumers hold their own states to keep track of changes and diffing. If
 a difference is spotted, the diff is logged to our stdout in json format.

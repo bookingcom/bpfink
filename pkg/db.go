@@ -14,11 +14,11 @@ type (
 )
 
 const (
-	bpfinkDB   = "bpfink"
-	usersKey   = "users"
-	accessKey  = "access"
-	genericKey = "generic"
-	sudoersKey = "sudoers"
+	bpfinkDB       = "bpfink"
+	usersKey       = "users"
+	accessKey      = "access"
+	genericKey     = "generic"
+	genericDiffKey = "genericDiff"
 )
 
 func (a *AgentDB) save(k string, v interface{}) error {
@@ -53,8 +53,6 @@ func (a *AgentDB) load(k string, v interface{}) error {
 	})
 }
 
-// SaveSudoers method to save a sudoer
-
 // SaveUsers method to save Users
 func (a *AgentDB) SaveUsers(users Users) error { return a.save(usersKey, users) }
 
@@ -64,8 +62,10 @@ func (a *AgentDB) SaveAccess(access Access) error { return a.save(accessKey, acc
 // SaveGeneric method to save generic files
 func (a *AgentDB) SaveGeneric(generic Generic) error { return a.save(genericKey, generic) }
 
-//SaveSudoers method to save sudoers
-func (a *AgentDB) SaveSudoers(sudoers Sudoers) error { return a.save(sudoersKey, sudoers) }
+//SaveGenericDiff method to save generic files that require a diff
+func (a *AgentDB) SaveGenericDiff(genericDiff GenericDiff) error {
+	return a.save(genericDiffKey, genericDiff)
+}
 
 //LoadUsers method to load users
 func (a *AgentDB) LoadUsers() (Users, error) {
@@ -79,14 +79,14 @@ func (a *AgentDB) LoadAccess() (Access, error) {
 	return access, a.load(accessKey, &access)
 }
 
-// LoadGeneric method to load access
+// LoadGeneric method to load generic files
 func (a *AgentDB) LoadGeneric() (Generic, error) {
 	generic := Generic{}
 	return generic, a.load(genericKey, &generic)
 }
 
-//LoadUsers method to load users
-func (a *AgentDB) LoadSudoers() (Sudoers, error) {
-	sudoers := Sudoers{}
-	return sudoers, a.load(sudoersKey, &sudoers)
+//LoadGenericDiff method to load generic files that require a diff
+func (a *AgentDB) LoadGenericDiff() (GenericDiff, error) {
+	genericDiff := GenericDiff{}
+	return genericDiff, a.load(genericDiffKey, &genericDiff)
 }

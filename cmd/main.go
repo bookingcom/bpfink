@@ -52,17 +52,17 @@ type (
 			HostRoleToken      string
 		}
 		Consumers struct {
-			Root    string
-			Access  string
-			Sudoers []string
-			Users   struct {
+			Root        string
+			Access      string
+			GenericDiff []string
+			Users       struct {
 				Shadow, Passwd string
 			}
 			Generic  []string
 			Excludes []string
 		}
 	}
-	// filesToMonitor is the struct for watching files, used for generic and sudoers consumers
+	// filesToMonitor is the struct for watching files, used for generic and generic diff consumers
 	FileInfo struct {
 		File  string
 		IsDir bool
@@ -148,18 +148,18 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 			existingConsumersFiles[c.Consumers.Users.Passwd] = true
 		}
 	}
-	if len(c.Consumers.Sudoers) > 0 {
+	if len(c.Consumers.GenericDiff) > 0 {
 		//get list of files to watch
-		sudoersFiles := c.getListOfFiles(fs, c.Consumers.Sudoers)
-		for _, sudoersFile := range sudoersFiles {
-			if !c.isFileToBeExcluded(sudoersFile.File, existingConsumersFiles) {
-				state := &pkg.SudoersState{
-					SudoersListener: pkg.NewSudoersListener(
-						pkg.SudoersFileOpt(fs, sudoersFile.File, c.logger()),
+		genericDiffFiles := c.getListOfFiles(fs, c.Consumers.GenericDiff)
+		for _, genericDiffFile := range genericDiffFiles {
+			if !c.isFileToBeExcluded(genericDiffFile.File, existingConsumersFiles) {
+				state := &pkg.GenericDiffState{
+					GenericDiffListener: pkg.NewGenericDiffListener(
+						pkg.GenericDiffFileOpt(fs, genericDiffFile.File, c.logger()),
 					),
 				}
 				consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
-				existingConsumersFiles[sudoersFile.File] = true
+				existingConsumersFiles[genericDiffFile.File] = true
 			}
 		}
 	}
@@ -373,7 +373,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 		}
 	}
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
-		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes, w.Sudoers = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes, c.Consumers.Sudoers
+		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes, w.GenericDiff = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes, c.Consumers.GenericDiff
 	}), nil
 }
 

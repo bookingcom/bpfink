@@ -44,12 +44,6 @@ _shadow() {
 	EOF
 }
 
-_sudoers () {
-	cat > bpfink.sudoers <<- EOF
-		root ALL = (ALL:ALL) ALL
-	EOF
-}
-
 _config () {
 	echo "bcc = \"${PROJECT}/pkg/ebpf/vfs.o\"" >> bpfink.toml
 	echo "keyfile = \"\"" >> bpfink.toml
@@ -61,8 +55,8 @@ _config () {
   echo "root = \"/\"" >>bpfink.toml
 
   echo "access = \"${PROJECT}/examples/watcher/test-dir/bpfink.access\"" >> bpfink.toml
+  echo "genericDiff = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher/test-generic-diff-file\", \"/etc/resolv.conf\"]" >> bpfink.toml
   echo "generic = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher\",  \"/etc\"]" >> bpfink.toml
-  echo "sudoers = [\"${PROJECT}/examples/watcher/test-dir/bpfink.sudoers\", \"/etc/sudoers.d\"]" >> bpfink.toml
   echo "excludes = [\"${PROJECT}/examples/watcher/test-dir/dynamic-watcher/exclude-dir\", \"${PROJECT}/examples/watcher/test-dir/excludeFile\"]" >>bpfink.toml
 
   cat >>bpfink.toml <<-'EOF'
@@ -90,6 +84,7 @@ init() {
   mkdir -p dynamic-watcher/dir-test
   touch dynamic-watcher/testFile
   touch dynamic-watcher/dir-test/example.txt
+  touch dynamic-watcher/test-generic-diff-file
   cd dynamic-watcher || exit
   ln -s dir-test/example.txt linked_text
   mkdir exclude-dir
@@ -99,7 +94,6 @@ init() {
   _passwd
   _shadow
   _access
-  _sudoers
   _config
   make -r -C "${PROJECT}/pkg/ebpf" || exit
 }
@@ -132,13 +126,13 @@ run_test() {
   sed -i '$ d' bpfink.shadow
   sleep 2
 
-  ##Sudoers
-  printf "\n\nadding 'ncircle ALL=(ALL) NOPASSWD:NCIRCLE_CMDS' and 'Cmnd_Alias NCIRCLE_CMDS=ALL, !/bin/netstat' to bpfink.sudoers\n\n"
-  echo "ncircle ALL=(ALL) NOPASSWD:NCIRCLE_CMDS" >>bpfink.sudoers
-  echo "Cmnd_Alias NCIRCLE_CMDS=ALL, !/bin/netstat" >>bpfink.sudoers
+  ##Generic File Diff
+  printf "\n\ntesting generic file diff\n\n"
+  echo "Test file" >>dynamic-watcher/test-generic-diff-file
+  echo "Generic file" >>dynamic-watcher/test-generic-diff-file
   sleep 2
   printf "\n\nremove last addition\n"
-  sed -i '$ d' bpfink.sudoers
+  sed -i '$ d' dynamic-watcher/test-generic-diff-file
   sleep 2
 
   printf "\n\ncreate a new file in dynamic-watcher\n\n"
