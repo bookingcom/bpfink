@@ -34,8 +34,8 @@ type Metrics struct {
 }
 
 type bpfMetrics struct {
-	hitRate    int64
-	missedRate int64
+	hitRate    float64
+	missedRate float64
 }
 
 const (
@@ -133,8 +133,8 @@ func (m *Metrics) RecordBPFMetrics() error {
 				}
 				vfsHit := fmt.Sprintf("bpf.by_role.%s.%s.%s.kprobe.hit_rate.minutely", quote(defaultRolename), quote(m.Hostname), key)
 				vfsMiss := fmt.Sprintf("bpf.by_role.%s.%s.%s.kprobe.miss_rate.minutely", quote(defaultRolename), quote(m.Hostname), key)
-				goMetrics.GetOrRegisterGauge(vfsHit, m.EveryMinuteRegister).Update(BPFMetrics[key].hitRate)
-				goMetrics.GetOrRegisterGauge(vfsMiss, m.EveryMinuteRegister).Update(BPFMetrics[key].missedRate)
+				goMetrics.GetOrRegisterGaugeFloat64(vfsHit, m.EveryMinuteRegister).Update(BPFMetrics[key].hitRate)
+				goMetrics.GetOrRegisterGaugeFloat64(vfsMiss, m.EveryMinuteRegister).Update(BPFMetrics[key].missedRate)
 			}
 		}
 	}()
@@ -215,6 +215,8 @@ func (m *Metrics) fetchBPFMetrics() (map[string]bpfMetrics, error) {
 }
 
 func (m *Metrics) parseBPFLine(tokens []string, probeName string) (*bpfMetrics, error) {
+	var hitRate float64
+	var missedRate float64
 	currentHit, err := strconv.ParseInt(tokens[1], 10, 64)
 	if err != nil {
 		return nil, err
@@ -230,11 +232,18 @@ func (m *Metrics) parseBPFLine(tokens []string, probeName string) (*bpfMetrics, 
 	if m.missedCount == nil {
 		m.missedCount = make(map[string]int64)
 	}
-	hitRate := currentHit - m.hitCount[probeName]
-	missedRate := currentMiss - m.missedCount[probeName]
+	hitValue := currentHit - m.hitCount[probeName]
+	missedValue := currentMiss - m.missedCount[probeName]
 	m.hitCount[probeName] = currentHit
 	m.missedCount[probeName] = currentMiss
 	m.mux.Unlock()
+	// Send hit/miss rates instead of value
+	hitRate = float64(hitValue)
+	missedRate = float64(missedValue)
+	if hitValue != 0 || missedValue != 0 {
+		hitRate = float64(hitValue) / float64(hitValue+missedValue)
+		missedRate = float64(missedValue) / float64(hitValue+missedValue)
+	}
 	return &bpfMetrics{
 		hitRate:    hitRate,
 		missedRate: missedRate,
