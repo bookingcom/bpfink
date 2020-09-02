@@ -238,11 +238,13 @@ func (m *Metrics) parseBPFLine(tokens []string, probeName string) (*bpfMetrics, 
 	m.missedCount[probeName] = currentMiss
 	m.mux.Unlock()
 	// Send hit/miss rates instead of value
-	hitRate = float64(hitValue)
-	missedRate = float64(missedValue)
 	if hitValue != 0 || missedValue != 0 {
 		hitRate = float64(hitValue) / float64(hitValue+missedValue)
 		missedRate = float64(missedValue) / float64(hitValue+missedValue)
+	} else {
+		// Hit/Miss rates are 0, meaning no new events occurred, send hitRate 1
+		hitRate = float64(1)
+		missedRate = float64(missedValue)
 	}
 	return &bpfMetrics{
 		hitRate:    hitRate,
