@@ -31,6 +31,7 @@ var (
 		err     error
 		Once    sync.Once
 	}
+	GenericDiffPaths []string
 )
 
 type (
@@ -160,6 +161,8 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 				}
 				consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 				existingConsumersFiles[genericDiffFile.File] = true
+				//this variable is used by watcher to get the complete list of paths to monitor, instead of the list from the config
+				GenericDiffPaths = append(GenericDiffPaths, genericDiffFile.File)
 			}
 		}
 	}
@@ -203,11 +206,27 @@ func (c Configuration) isFileToBeExcluded(file string, existingConsumersFiles ma
 	return isFileExcluded || existingConsumersFiles[file]
 }
 
+// Gets the full list of paths to monitor
+func (c Configuration) getCompleteListOfPaths(pathList []string) []string {
+	logger := c.logger()
+	var completePathList []string
+	for _, path := range pathList {
+		completePath, err := filepath.Glob(path)
+		if err != nil {
+			logger.Error().Err(err).Msgf("Error getting complete list of paths to register: %v", err)
+		}
+		completePathList = append(completePathList, completePath...)
+	}
+	return completePathList
+}
+
 // Gets list of files to be monitored from all files/dirs listed in the config
 func (c Configuration) getListOfFiles(fs afero.Fs, pathList []string) []FileInfo {
 	logger := c.logger()
 	var filesToMonitor []FileInfo
-	for _, fullPath := range pathList {
+	completeListOfPaths := c.getCompleteListOfPaths(pathList)
+
+	for _, fullPath := range completeListOfPaths {
 		fullPath := fullPath
 		pkgFile := pkg.NewFile(func(file *pkg.File) {
 			file.Fs, file.Path, file.Logger = fs, fullPath, logger
@@ -373,7 +392,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 		}
 	}
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
-		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes, w.GenericDiff = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes, c.Consumers.GenericDiff
+		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes, w.GenericDiff = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes, GenericDiffPaths
 	}), nil
 }
 
