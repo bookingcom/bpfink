@@ -116,7 +116,10 @@ func (c Configuration) logger() (logger zerolog.Logger) {
 	return logger
 }
 
-func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) {
+/*
+Initialises all the consumers along with pre-populating genericDiffPaths used by watcher
+*/
+func (c Configuration) consumers(db *pkg.AgentDB, genericDiffPaths *[]string) (consumers pkg.BaseConsumers) {
 	fs := afero.NewOsFs()
 	var existingConsumersFiles = make(map[string]bool)
 
@@ -160,6 +163,8 @@ func (c Configuration) consumers(db *pkg.AgentDB) (consumers pkg.BaseConsumers) 
 				}
 				consumers = append(consumers, &pkg.BaseConsumer{AgentDB: db, ParserLoader: state})
 				existingConsumersFiles[genericDiffFile.File] = true
+				//this variable is used by watcher to get the complete list of paths to monitor, instead of the list from the config
+				*genericDiffPaths = append(*genericDiffPaths, genericDiffFile.File)
 			}
 		}
 	}
@@ -203,11 +208,28 @@ func (c Configuration) isFileToBeExcluded(file string, existingConsumersFiles ma
 	return isFileExcluded || existingConsumersFiles[file]
 }
 
+// Gets the full list of paths to monitor
+func (c Configuration) getCompleteListOfPaths(pathList []string) []string {
+	logger := c.logger()
+	var completePathList []string
+	for _, path := range pathList {
+		completePath, err := filepath.Glob(path)
+		if err != nil {
+			logger.Error().Err(err).Msgf("Error getting complete list of paths to register: %v", err)
+			continue
+		}
+		completePathList = append(completePathList, completePath...)
+	}
+	return completePathList
+}
+
 // Gets list of files to be monitored from all files/dirs listed in the config
 func (c Configuration) getListOfFiles(fs afero.Fs, pathList []string) []FileInfo {
 	logger := c.logger()
 	var filesToMonitor []FileInfo
-	for _, fullPath := range pathList {
+	completeListOfPaths := c.getCompleteListOfPaths(pathList)
+
+	for _, fullPath := range completeListOfPaths {
 		fullPath := fullPath
 		pkgFile := pkg.NewFile(func(file *pkg.File) {
 			file.Fs, file.Path, file.Logger = fs, fullPath, logger
@@ -353,6 +375,7 @@ func (c Configuration) metrics() (*pkg.Metrics, error) {
 
 func (c Configuration) watcher() (*pkg.Watcher, error) {
 	logger := c.logger()
+	var genericDiffPaths []string
 	logger.Debug().Str("db", c.Database).Msg("opening bolt database")
 	db, err := bolt.Open(c.Database, 0600, nil)
 	if err != nil {
@@ -365,7 +388,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 	}
 
 	database := &pkg.AgentDB{Logger: logger, DB: db}
-	consumers := c.consumers(database)
+	consumers := c.consumers(database, &genericDiffPaths)
 
 	for _, consumer := range consumers {
 		if err := consumer.Init(); err != nil {
@@ -373,7 +396,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 		}
 	}
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
-		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes, w.GenericDiff = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes, c.Consumers.GenericDiff
+		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes, w.GenericDiff = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes, genericDiffPaths
 	}), nil
 }
 
