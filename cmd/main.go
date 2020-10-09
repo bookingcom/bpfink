@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -122,12 +123,13 @@ Initialises all the consumers along with pre-populating genericDiffPaths used by
 func (c Configuration) consumers(db *pkg.AgentDB, genericDiffPaths *[]string) (consumers pkg.BaseConsumers) {
 	fs := afero.NewOsFs()
 	var existingConsumersFiles = make(map[string]bool)
+	listOfRegexpsExcludes := c.compileRegex(c.Consumers.Excludes)
 
 	if c.Consumers.Root != "" {
 		fs = afero.NewBasePathFs(fs, c.Consumers.Root)
 	}
 	if c.Consumers.Access != "" {
-		if !c.isFileToBeExcluded(c.Consumers.Access, existingConsumersFiles) {
+		if !c.isFileToBeExcluded(c.Consumers.Access, existingConsumersFiles, listOfRegexpsExcludes) {
 			state := &pkg.AccessState{
 				AccessListener: pkg.NewAccessListener(
 					pkg.AccessFileOpt(fs, c.Consumers.Access, c.logger()),
@@ -138,7 +140,8 @@ func (c Configuration) consumers(db *pkg.AgentDB, genericDiffPaths *[]string) (c
 		}
 	}
 	if c.Consumers.Users.Shadow != "" && c.Consumers.Users.Passwd != "" {
-		if !c.isFileToBeExcluded(c.Consumers.Users.Shadow, existingConsumersFiles) || !c.isFileToBeExcluded(c.Consumers.Users.Passwd, existingConsumersFiles) {
+		if !c.isFileToBeExcluded(c.Consumers.Users.Shadow, existingConsumersFiles, listOfRegexpsExcludes) ||
+			!c.isFileToBeExcluded(c.Consumers.Users.Passwd, existingConsumersFiles, listOfRegexpsExcludes) {
 			state := &pkg.UsersState{
 				UsersListener: pkg.NewUsersListener(func(l *pkg.UsersListener) {
 					l.Passwd = c.Consumers.Users.Passwd
@@ -155,7 +158,7 @@ func (c Configuration) consumers(db *pkg.AgentDB, genericDiffPaths *[]string) (c
 		//get list of files to watch
 		genericDiffFiles := c.getListOfFiles(fs, c.Consumers.GenericDiff)
 		for _, genericDiffFile := range genericDiffFiles {
-			if !c.isFileToBeExcluded(genericDiffFile.File, existingConsumersFiles) {
+			if !c.isFileToBeExcluded(genericDiffFile.File, existingConsumersFiles, listOfRegexpsExcludes) {
 				state := &pkg.GenericDiffState{
 					GenericDiffListener: pkg.NewGenericDiffListener(
 						pkg.GenericDiffFileOpt(fs, genericDiffFile.File, c.logger()),
@@ -171,7 +174,7 @@ func (c Configuration) consumers(db *pkg.AgentDB, genericDiffPaths *[]string) (c
 	if len(c.Consumers.Generic) > 0 {
 		genericFiles := c.getListOfFiles(fs, c.Consumers.Generic)
 		for _, genericFile := range genericFiles {
-			if !c.isFileToBeExcluded(genericFile.File, existingConsumersFiles) {
+			if !c.isFileToBeExcluded(genericFile.File, existingConsumersFiles, listOfRegexpsExcludes) {
 				genericFile := genericFile
 				state := &pkg.GenericState{
 					GenericListener: pkg.NewGenericListener(func(l *pkg.GenericListener) {
@@ -189,22 +192,36 @@ func (c Configuration) consumers(db *pkg.AgentDB, genericDiffPaths *[]string) (c
 	return consumers
 }
 
+// Gets list of regexp objects from regexp paths
+func (c Configuration) compileRegex(listofPaths []string) []*regexp.Regexp {
+	logger := c.logger()
+	var regexpObjects []*regexp.Regexp
+	for _, path := range listofPaths {
+		reg, err := regexp.Compile(path)
+		if err != nil {
+			logger.Error().Err(err).Msgf("Error while compiling regex: %v", err)
+			continue
+		}
+		regexpObjects = append(regexpObjects, reg)
+	}
+	return regexpObjects
+}
+
 /* 	Checks if file belongs to exclusion list or is already assigned to a consumer and excludes it accordingly
 true: if file needs to be excluded
 false: otherwise
 */
-func (c Configuration) isFileToBeExcluded(file string, existingConsumersFiles map[string]bool) bool {
+func (c Configuration) isFileToBeExcluded(file string, existingConsumersFiles map[string]bool, listOfRegexpsExcludes []*regexp.Regexp) bool {
 	logger := c.logger()
 	isFileExcluded := false
-
-	for _, excludeFile := range c.Consumers.Excludes {
-		if strings.HasPrefix(file, excludeFile) {
+	for _, excludeRegexp := range listOfRegexpsExcludes {
+		matches := excludeRegexp.MatchString(file)
+		if matches {
 			logger.Debug().Msgf("File belongs to exclusion list, excluding from monitoring: %v", file)
 			isFileExcluded = true
 			break
 		}
 	}
-
 	return isFileExcluded || existingConsumersFiles[file]
 }
 
@@ -396,7 +413,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 		}
 	}
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
-		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes, w.GenericDiff = logger, consumers.Consumers(), fim, database, c.key, c.Consumers.Excludes, genericDiffPaths
+		w.Logger, w.Consumers, w.FIM, w.Database, w.Key, w.Excludes, w.GenericDiff = logger, consumers.Consumers(), fim, database, c.key, c.compileRegex(c.Consumers.Excludes), genericDiffPaths
 	}), nil
 }
 
