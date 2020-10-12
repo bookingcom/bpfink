@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -20,7 +21,7 @@ type (
 		Consumers     []Consumer
 		consumers     Consumers
 		CloseChannels chan struct{}
-		Excludes      []string
+		Excludes      []*regexp.Regexp
 		GenericDiff   []string
 		Metrics       *Metrics
 	}
@@ -130,10 +131,13 @@ func (w *Watcher) addInode(event *Event, isdir bool) {
 	fullPath := path.Join(file, event.Path)
 	event.Path = fullPath
 
-	// Exclude file from monitoring if it belongs to exclusion list
-	for _, excludeFile := range w.Excludes {
-		if strings.HasPrefix(event.Path, excludeFile) {
-			w.Debug().Msgf("File belongs to exclusion list, excluding from monitoring: %v", event.Path)
+	/* Exclude file from monitoring if it belongs to exclusion list
+	w.Excludes is a list of compiled regexp objects
+	*/
+	for _, excludeRegexp := range w.Excludes {
+		matches := excludeRegexp.MatchString(event.Path)
+		if matches {
+			w.Debug().Msgf("File belongs to exclusion list, excluding from monitoring: %v", file)
 			return
 		}
 	}
@@ -141,6 +145,7 @@ func (w *Watcher) addInode(event *Event, isdir bool) {
 	for _, genericDiffFile := range w.GenericDiff {
 		if strings.HasPrefix(event.Path, genericDiffFile) {
 			isGenericDiffFile = true
+			break
 		}
 	}
 	if isGenericDiffFile {
