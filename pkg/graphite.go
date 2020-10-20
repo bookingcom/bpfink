@@ -17,7 +17,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-//Metrics struct defining configs for graphite metrics
+// Metrics struct defining configs for graphite metrics
 type Metrics struct {
 	GraphiteHost        string
 	Namespace           string
@@ -34,8 +34,8 @@ type Metrics struct {
 }
 
 type bpfMetrics struct {
-	hitRate    int64
-	missedRate int64
+	hitRate    float64
+	missedRate float64
 }
 
 const (
@@ -50,7 +50,9 @@ const (
 	pdoDentryOpen   = "pdo_dentry_open"
 )
 
-//Init method to start up graphite metrics
+var defaultRolename = "unknown_role" // nolint:gochecknoglobals
+
+// Init method to start up graphite metrics
 func (m *Metrics) Init() error {
 	m.missedCount = make(map[string]int64)
 	m.hitCount = make(map[string]int64)
@@ -74,30 +76,65 @@ func (m *Metrics) Init() error {
 	return nil
 }
 
-//RecordByInstalledHost graphite metric to show how manay host have bpfink installed
-func (m *Metrics) RecordByInstalledHost() {
-	metricNameByHost := fmt.Sprintf("installed.by_host.%s.count.hourly", quote(m.Hostname))
-	goMetrics.GetOrRegisterGauge(metricNameByHost, m.EveryHourRegister).Update(int64(1))
+// RecordByLogTypes sends count of different types of logs
+func (m *Metrics) RecordByLogTypes(logType string) {
+	// If rolename is not empty, override the defaultRolename
 	if m.RoleName != "" {
-		metricNameByRole := fmt.Sprintf("installed.by_role.%s.count.hourly", quote(m.RoleName))
-		goMetrics.GetOrRegisterGauge(metricNameByRole, m.EveryHourRegister).Update(int64(1))
+		defaultRolename = m.RoleName
 	}
+	metricName := fmt.Sprintf("log_level.%s.by_role.%s.%s.count.minutely", logType, quote(defaultRolename), quote(m.Hostname))
+	goMetrics.GetOrRegisterCounter(metricName, m.EveryMinuteRegister).Inc(1)
 }
 
-//RecordBPFMetrics send metrics for BPF hits and misses per probe
+// RecordByEventsCaught sends count of number of events caught by ebpf
+func (m *Metrics) RecordByEventsCaught() {
+	// If rolename is not empty, override the defaultRolename
+	if m.RoleName != "" {
+		defaultRolename = m.RoleName
+	}
+	metricName := fmt.Sprintf("bpf.events_caught.by_role.%s.%s.count.minutely", quote(defaultRolename), quote(m.Hostname))
+	goMetrics.GetOrRegisterCounter(metricName, m.EveryMinuteRegister).Inc(1)
+}
+
+// RecordVersion graphite metric to show the version of bpfink running on each host
+func (m *Metrics) RecordVersion(version string) {
+	// If rolename is not empty, override the defaultRolename
+	if m.RoleName != "" {
+		defaultRolename = m.RoleName
+	}
+
+	versionInt, _ := strconv.ParseInt(strings.Replace(version, ".", "", -1), 10, 64)
+	metricName := fmt.Sprintf("installed.by_role.%s.%s.version.hourly", quote(defaultRolename), quote(m.Hostname))
+	goMetrics.GetOrRegisterGauge(metricName, m.EveryHourRegister).Update(versionInt)
+}
+
+// RecordByInstalledHost graphite metric to show how manay host have bpfink installed
+func (m *Metrics) RecordByInstalledHost() {
+	// If rolename is not empty, override the defaultRolename
+	if m.RoleName != "" {
+		defaultRolename = m.RoleName
+	}
+	metricName := fmt.Sprintf("installed.by_role.%s.%s.count.hourly", quote(defaultRolename), quote(m.Hostname))
+	goMetrics.GetOrRegisterGauge(metricName, m.EveryHourRegister).Update(int64(1))
+}
+
+// RecordBPFMetrics send metrics for BPF hits and misses per probe
 func (m *Metrics) RecordBPFMetrics() error {
 	go func() {
 		for range time.Tick(m.MetricsInterval) {
-
 			BPFMetrics, err := m.fetchBPFMetrics()
 			if err != nil {
 				m.Logger.Error().Err(err).Msg("error fetching bpf metrics")
 			}
 			for key := range BPFMetrics {
-				vfsHit := fmt.Sprintf("bpf.by_host.%s.%s.kprobe.hit_rate.minutely", quote(m.Hostname), key)
-				vfsMiss := fmt.Sprintf("bpf.by_host.%s.%s.kprobe.miss_rate.minutely", quote(m.Hostname), key)
-				goMetrics.GetOrRegisterGauge(vfsHit, m.EveryMinuteRegister).Update(BPFMetrics[key].hitRate)
-				goMetrics.GetOrRegisterGauge(vfsMiss, m.EveryMinuteRegister).Update(BPFMetrics[key].missedRate)
+				// If rolename is not empty, override the defaultRolename
+				if m.RoleName != "" {
+					defaultRolename = m.RoleName
+				}
+				vfsHit := fmt.Sprintf("bpf.by_role.%s.%s.%s.kprobe.hit_rate.minutely", quote(defaultRolename), quote(m.Hostname), key)
+				vfsMiss := fmt.Sprintf("bpf.by_role.%s.%s.%s.kprobe.miss_rate.minutely", quote(defaultRolename), quote(m.Hostname), key)
+				goMetrics.GetOrRegisterGaugeFloat64(vfsHit, m.EveryMinuteRegister).Update(BPFMetrics[key].hitRate)
+				goMetrics.GetOrRegisterGaugeFloat64(vfsMiss, m.EveryMinuteRegister).Update(BPFMetrics[key].missedRate)
 			}
 		}
 	}()
@@ -178,6 +215,8 @@ func (m *Metrics) fetchBPFMetrics() (map[string]bpfMetrics, error) {
 }
 
 func (m *Metrics) parseBPFLine(tokens []string, probeName string) (*bpfMetrics, error) {
+	var hitRate float64
+	var missedRate float64
 	currentHit, err := strconv.ParseInt(tokens[1], 10, 64)
 	if err != nil {
 		return nil, err
@@ -193,11 +232,20 @@ func (m *Metrics) parseBPFLine(tokens []string, probeName string) (*bpfMetrics, 
 	if m.missedCount == nil {
 		m.missedCount = make(map[string]int64)
 	}
-	hitRate := currentHit - m.hitCount[probeName]
-	missedRate := currentMiss - m.missedCount[probeName]
+	hitValue := currentHit - m.hitCount[probeName]
+	missedValue := currentMiss - m.missedCount[probeName]
 	m.hitCount[probeName] = currentHit
 	m.missedCount[probeName] = currentMiss
 	m.mux.Unlock()
+	// Send hit/miss rates instead of value
+	if hitValue != 0 || missedValue != 0 {
+		hitRate = float64(hitValue) / float64(hitValue+missedValue)
+		missedRate = float64(missedValue) / float64(hitValue+missedValue)
+	} else {
+		// Hit/Miss rates are 0, meaning no new events occurred, send hitRate 1
+		hitRate = float64(1)
+		missedRate = float64(missedValue)
+	}
 	return &bpfMetrics{
 		hitRate:    hitRate,
 		missedRate: missedRate,
@@ -218,7 +266,7 @@ func quote(str string) string {
 			return -1
 		default:
 			underscorePrecedes = true
-			//maintain - in hostnames
+			// maintain - in hostnames
 			if string(r) == "-" {
 				return r
 			}

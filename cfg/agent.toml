@@ -6,7 +6,9 @@ bcc = "pkg/ebpf/vfs.o"
 [consumers]
 root = "/"
 access = "/access.conf"
+genericDiff = ["/sudoers", "/etc/sudoers.d"]
 generic = ["/etc"]
+excludes = ["/etc/bookings/pool_roster"]
 
 [consumers.users]
 root = "/"

@@ -1,17 +1,18 @@
 package pkg
 
 import (
-	"github.com/bookingcom/bpfink/pkg/lang/generic"
 	"github.com/rs/zerolog"
 	"github.com/spf13/afero"
+
+	"github.com/bookingcom/bpfink/pkg/lang/generic"
 )
 
 type (
-	//Generic struct used to store changes to generic files
+	// Generic struct used to store changes to generic files
 	Generic struct {
 		Contents []byte
 	}
-	//GenericListener struct used for filestream events.
+	// GenericListener struct used for filestream events.
 	GenericListener struct {
 		zerolog.Logger
 		afero.Fs
@@ -25,10 +26,11 @@ type (
 	}
 )
 
-//IsEmpty method to check if diff is empty
+// IsEmpty method to check if diff is empty
 func (a Generic) IsEmpty() bool { return len(a.Contents) == 0 }
 
-//GenericFileOpt function used to return metadata on a file
+// GenericFileOpt function used to return metadata on a file
+// TODO: unused in current code
 func GenericFileOpt(fs afero.Fs, path string, logger zerolog.Logger) func(*GenericListener) {
 	return func(listener *GenericListener) {
 		listener.Fs = NewFile(func(file *File) {
@@ -39,7 +41,7 @@ func GenericFileOpt(fs afero.Fs, path string, logger zerolog.Logger) func(*Gener
 	}
 }
 
-//NewGenericListener function to create a new file event listener
+// NewGenericListener function to create a new file event listener
 func NewGenericListener(options ...func(*GenericListener)) *GenericListener {
 	gl := &GenericListener{Logger: zerolog.Nop()}
 	for _, option := range options {
@@ -50,11 +52,10 @@ func NewGenericListener(options ...func(*GenericListener)) *GenericListener {
 
 func (gl *GenericListener) parse() (Generic, error) {
 	listener := &genericListener{Logger: gl.Logger}
-	gl.Debug().Msgf("parsing access: %v", gl.File)
 	if gl.IsDir {
 		return Generic{}, nil
 	}
-	gl.Debug().Msgf("parsing access: %v", gl.File)
+	gl.Debug().Msgf("parsing generic: %v", gl.File)
 	err := listener.genericParse(gl.File, gl.Key)
 	if err != nil {
 		return Generic{}, err
@@ -72,7 +73,7 @@ func (gl *genericListener) genericParse(fileName string, key []byte) error {
 	return nil
 }
 
-//Register method returns list of paths to files to be watched
+// Register method returns list of paths to files to be watched
 func (gl *GenericListener) Register() []string {
 	return []string{gl.File}
 }

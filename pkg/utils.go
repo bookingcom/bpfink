@@ -11,11 +11,11 @@ import (
 )
 
 type (
-	//Set type to define Set
+	// Set type to define Set
 	Set map[string]struct{}
-	//Map type to define Map
+	// Map type to define Map
 	Map map[string]string
-	//File struct to define file
+	// File struct to define file
 	File struct {
 		afero.Fs
 		zerolog.Logger
@@ -23,14 +23,14 @@ type (
 	}
 )
 
-//Push method to push entries into set
+// Push method to push entries into set
 func (s Set) Push(entries ...string) {
 	for _, entry := range entries {
 		s[entry] = struct{}{}
 	}
 }
 
-//ToArray method to return items into slice of string
+// ToArray method to return items into slice of string
 func (s Set) ToArray() (array []string) {
 	for elt := range s {
 		array = append(array, elt)
@@ -38,7 +38,7 @@ func (s Set) ToArray() (array []string) {
 	return
 }
 
-//Equal method to check if set1 == set2 deep compare
+// Equal method to check if set1 == set2 deep compare
 func (s Set) Equal(s2 Set) bool {
 	if len(s) != len(s2) {
 		return false
@@ -51,14 +51,14 @@ func (s Set) Equal(s2 Set) bool {
 	return true
 }
 
-//Array2Set function to convert Array to a set
+// Array2Set function to convert Array to a set
 func Array2Set(array []string) Set {
 	set := Set{}
 	set.Push(array...)
 	return set
 }
 
-//ArrayDiff function to compare two arrays
+// ArrayDiff function to compare two arrays
 func ArrayDiff(array1, array2 []string) (add, del []string) {
 	set1, set2 := Array2Set(array1), Array2Set(array2)
 	for elt := range set1 {
@@ -70,13 +70,14 @@ func ArrayDiff(array1, array2 []string) (add, del []string) {
 	return set2.ToArray(), set1.ToArray()
 }
 
-//ArrayClean function to clean an array of duplicates?
+// ArrayClean function to clean an array of duplicates?
 func ArrayClean(array []string) []string { return Array2Set(array).ToArray() }
 
-//ArrayEqual checks if one array equals the second array
+// ArrayEqual checks if one array equals the second array
 func ArrayEqual(array1, array2 []string) bool { return Array2Set(array1).Equal(Array2Set(array2)) }
 
-//SetDiff check difference between two sets
+// SetDiff check difference between two sets
+// TODO: unused in current code
 func SetDiff(old, new Set) (add, del Set) {
 	add, del = Set{}, Set{}
 	for k := range new {
@@ -94,7 +95,7 @@ func SetDiff(old, new Set) (add, del Set) {
 	return
 }
 
-//Equal method to check if map1 == map2
+// Equal method to check if map1 == map2
 func (m1 Map) Equal(m2 Map) bool {
 	if len(m1) != len(m2) {
 		return false
@@ -109,7 +110,7 @@ func (m1 Map) Equal(m2 Map) bool {
 	return true
 }
 
-//GobMarshal function to marshal interface to byte slice
+// GobMarshal function to marshal interface to byte slice
 func GobMarshal(i interface{}) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := gob.NewEncoder(buf)
@@ -117,25 +118,24 @@ func GobMarshal(i interface{}) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-//GobUnmarshal function to unmarshal gob
+// GobUnmarshal function to unmarshal gob
 func GobUnmarshal(i interface{}, b []byte) error {
 	buf := bytes.NewBuffer(b)
 	decoder := gob.NewDecoder(buf)
 	return decoder.Decode(i)
 }
 
-//IsNotExist Golang has a weird behavior regarding stat function if one entry in the path is a file
+// IsNotExist Golang has a weird behavior regarding stat function if one entry in the path is a file
 // We need to rewrite the os.IsNotExist function
 func IsNotExist(err error) bool {
-	switch e := err.(type) {
-	case *os.PathError:
+	if e, ok := err.(*os.PathError); ok {
 		err = e.Err
 	}
 	return err == syscall.ENOENT || err == syscall.ENOTDIR ||
 		err == os.ErrNotExist
 }
 
-//MaskLeft function to maskleft given string
+// MaskLeft function to maskleft given string
 func MaskLeft(s string) string {
 	rs := []rune(s)
 	for i := 0; i < len(rs)-4; i++ {
@@ -144,7 +144,7 @@ func MaskLeft(s string) string {
 	return string(rs)
 }
 
-//NewFile function to create new files
+// NewFile function to create new files
 func NewFile(options ...func(*File)) *File {
 	file := &File{Fs: afero.NewOsFs(), Logger: zerolog.Nop()}
 	for _, option := range options {

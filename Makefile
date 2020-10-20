@@ -1,18 +1,24 @@
 BINARY = bpfink
-LD_FLAGS ?= -w -s -X main.BuildDate=$(shell date +%F)
+LD_FLAGS ?= -w -s -X main.BuildDate=$(shell date +%F) -X main.Version=$(BINARY_VERSION)
 PREFIX ?= /usr
+BINARY_VERSION ?=
 
 all: build
 build: $(BINARY)
 install: $(PREFIX)/bin/$(BINARY)
 
+.PHONY: $(BINARY)
 $(BINARY):
-	$(MAKE) -C pkg/ebpf
-	go build  -ldflags '$(LD_FLAGS)' -o $@ cmd/*.go
+	$(MAKE) -r -C pkg/ebpf
+	go build -ldflags '$(LD_FLAGS)' -o $@ cmd/*.go
 
 $(PREFIX)/bin/$(BINARY): $(BINARY)
 	install -p -D -m 0755 $< $@
 	$(MAKE) -r -C pkg/ebpf install
+
+.PHONY: e2etests
+e2etests: $(BINARY)
+	@sudo -E go test -tags e2e -race ./e2etests --bpfink-bin '$(PWD)/$(BINARY)' --ebpf-obj '$(PWD)/pkg/ebpf/vfs.o'
 
 .PHONY: clean
 clean:
@@ -33,3 +39,7 @@ fmt:
 
 .PHONY: test
 test: cover vet fmt
+
+.PHONY: test-unit
+test-unit:
+	go test -race -v ./pkg/...

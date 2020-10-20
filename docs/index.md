@@ -16,7 +16,7 @@ Technical overview
 
 __Main dependencies:__
 - [eBPF](https://github.com/iovisor/gobpf/) to handle kernel write events.
-- [boltdb](https://github.com/boltdb/bolt) for state persistence.
+- [boltdb](https://github.com/etcd-io/bbolt) for state persistence.
 - [graphite](https://graphiteapp.org/) optional to tracking installation, and number of events processed
 
 
@@ -68,7 +68,7 @@ different consumers for three different use cases:
 
 - User consumer, watch for the __/passwd__, __/shadow__ file to detect password changes
 (password hash is not logged to avoid offline brute force on leaked logs),
-it also watch for user home directory to detect ssh key injection.
+it also watches for user home directory to detect ssh key injection.
 - Access consumer, just watch __/access.conf__
 
 All consumers hold their own states to keep track of changes and diffing. If
@@ -78,7 +78,7 @@ In parallel consumers are persisting their state in a key value store (currently
 Current status
 --------------
 
-This project is activily being developed, and is currently in a beta status. It is functional but things
-will be changing. We will be working on coming up with tasks, so that other can contrubute to the project.
+This project is actively being developed, and is currently in a beta status. It is functional but things
+will be changing. We will be working on coming up with tasks, so that other can contribute to the project.
 
-Right now, dynamic file/dir watching is activily being worked on, and will be the next major milestone. Once this is complete, the code should ideally go for a refactor to improve memory usage, and improve code readability. 
+Right now, dynamic file/dir watching is actively being worked on, and will be the next major milestone. Once this is complete, the code should ideally go for a refactor to improve memory usage, and improve code readability. 

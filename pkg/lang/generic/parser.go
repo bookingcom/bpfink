@@ -10,10 +10,9 @@ import (
 
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/blake2b"
-	_ "golang.org/x/crypto/blake2b" // BLAKE2b hash
 )
 
-//Parser struct to handle parsing access.conf
+// Parser struct to handle parsing access.conf
 type Parser struct {
 	zerolog.Logger
 	FileName string
@@ -28,7 +27,7 @@ func defaultHashFunc() hash.Hash {
 	return h
 }
 
-//Parse func that parses a access file to collect accessObjects
+// Parse func that parses a access file to collect accessObjects
 func (p *Parser) Parse() error {
 	file, err := os.Open(p.FileName)
 	if err != nil {
@@ -41,12 +40,12 @@ func (p *Parser) Parse() error {
 		}
 	}()
 	p.Debug().Msgf("hashing file: %v", p.FileName)
-	hash := defaultHashFunc()
-	if _, err := io.Copy(hash, file); err != nil {
+	hashFunc := defaultHashFunc()
+	if _, err := io.Copy(hashFunc, file); err != nil {
 		return err
 	}
 
-	hashSum := hash.Sum(nil)
+	hashSum := hashFunc.Sum(nil)
 
 	nonce, err := generateNonce()
 	if err != nil {
@@ -61,7 +60,8 @@ func (p *Parser) Parse() error {
 		return err
 	}
 
-	p.Hash = append(nonce, aead.Seal(nil, nonce, hashSum, nil)...)
+	nonce = append(nonce, aead.Seal(nil, nonce, hashSum, nil)...)
+	p.Hash = nonce
 	p.Debug().Msgf("Hash: %v", string(p.Hash))
 	return nil
 }

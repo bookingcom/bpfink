@@ -1,0 +1,25 @@
+name: docker-ebpf-docker-build
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - master
+    paths:
+      - '.github/workflows/ci-docker-build.yml'
+      - 'scripts/build.sh'
+      - 'Dockerfile'
+
+jobs:
+  prepare-ebpf-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: make docker image for kernel library build
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: bookingcom/bpfink/bpfink-library-build
+        username: ${{ github.actor }}
+        password: ${{ secrets.BPFINK_COMMIT_TOKEN }}
+        registry: docker.pkg.github.com

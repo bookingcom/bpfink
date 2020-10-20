@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -11,7 +12,7 @@ import (
 )
 
 type (
-	//Watcher struct defines a watcher object
+	// Watcher struct defines a watcher object
 	Watcher struct {
 		zerolog.Logger
 		*FIM
@@ -20,37 +21,40 @@ type (
 		Consumers     []Consumer
 		consumers     Consumers
 		CloseChannels chan struct{}
+		Excludes      []*regexp.Regexp
+		GenericDiff   []string
+		Metrics       *Metrics
 	}
-	//Register defines register interface for a watcher
+	// Register defines register interface for a watcher
 	Register interface {
-		Register() *sync.Map //map[string]Consumer
+		Register() *sync.Map // map[string]Consumer
 	}
-	//Consumer interface describes a consumer for a watcher
+	// Consumer interface describes a consumer for a watcher
 	Consumer interface {
 		Consume(e Event) error
 		Register
 	}
-	//Consumers map of consumers
+	// Consumers map of consumers
 	Consumers struct {
 		zerolog.Logger
-		*sync.Map //map[string]Consumer
+		*sync.Map // map[string]Consumer
 	}
 )
 
 var (
-	//ErrReload var to define a reload of the consumer
+	// ErrReload var to define a reload of the consumer
 	ErrReload = fmt.Errorf("reload consumer")
 )
 
 const (
-	renameEvent = 2
+	renameEvent = 0
 	dirCreate   = 3
 	fileCreate  = 4
 	delFile     = -1
 	delDir      = -2
 )
 
-//NewWatcher function to create new watcher function
+// NewWatcher function to create new watcher function
 func NewWatcher(options ...func(*Watcher)) *Watcher {
 	watcher := &Watcher{Logger: zerolog.Nop(), consumers: Consumers{zerolog.Nop(), &sync.Map{}}, CloseChannels: make(chan struct{}, 1)}
 	for _, option := range options {
@@ -65,7 +69,7 @@ func (c Consumers) get(file string) (Consumer, error) {
 		if ok {
 			consumer, ok := rawConsumer.(Consumer)
 			if !ok {
-				err := errors.New("Failed to assert consumer from consumer map")
+				err := errors.New("failed to assert consumer from consumer map")
 				c.Error().Err(err)
 				return nil, err
 			}
@@ -78,9 +82,8 @@ func (c Consumers) get(file string) (Consumer, error) {
 	}
 }
 
-//Files method to get list of files
+// Files method to get list of files
 func (c Consumers) Files() (files []string) {
-
 	c.Range(func(key, value interface{}) bool {
 		stringKey, ok := key.(string)
 		if !ok {
@@ -118,29 +121,57 @@ func (w *Watcher) remove(file string) {
 }
 
 func (w *Watcher) addInode(event *Event, isdir bool) {
+	var consumer *BaseConsumer
 	file, err := w.GetFileFromInode(event.Inode)
 	if err != nil {
 		w.Debug().Msg("error getting file from inode")
 		return
 	}
 	w.Debug().Msgf("File: %v found for inode", file)
-	fullPath := fmt.Sprintf("%v/%v", file, event.Path)
+	fullPath := path.Join(file, event.Path)
 	event.Path = fullPath
 
-	state := &GenericState{
-		GenericListener: NewGenericListener(func(l *GenericListener) {
-			l.File = event.Path
-			l.IsDir = isdir
-			l.Logger = w.Logger
-			l.Key = w.Key
-		}),
+	/* Exclude file from monitoring if it belongs to exclusion list
+	w.Excludes is a list of compiled regexp objects
+	*/
+	for _, excludeRegexp := range w.Excludes {
+		matches := excludeRegexp.MatchString(event.Path)
+		if matches {
+			w.Debug().Msgf("File belongs to exclusion list, excluding from monitoring: %v", file)
+			return
+		}
 	}
-	consumer := &BaseConsumer{AgentDB: w.Database, ParserLoader: state}
+	var isGenericDiffFile bool
+	for _, genericDiffFile := range w.GenericDiff {
+		if strings.HasPrefix(event.Path, genericDiffFile) {
+			isGenericDiffFile = true
+			break
+		}
+	}
+	if isGenericDiffFile {
+		state := &GenericDiffState{
+			GenericDiffListener: NewGenericDiffListener(func(s *GenericDiffListener) {
+				s.genericDiff = event.Path
+				s.Logger = w.Logger
+			}),
+		}
+		consumer = &BaseConsumer{AgentDB: w.Database, ParserLoader: state}
+	} else {
+		state := &GenericState{
+			GenericListener: NewGenericListener(func(l *GenericListener) {
+				l.File = event.Path
+				l.IsDir = isdir
+				l.Logger = w.Logger
+				l.Key = w.Key
+			}),
+		}
+		consumer = &BaseConsumer{AgentDB: w.Database, ParserLoader: state}
+	}
 
 	w.Consumers = append(w.Consumers, consumer)
 	// consumer.Init()
 	w.Debug().Msgf("fullPath: %v", event.Path)
-	switch err := w.AddInode(event.Device, event.Path); {
+	switch err := w.AddFile(event.Path); {
 	case err == nil:
 		w.consumers.Store(event.Path, consumer)
 		w.Debug().Str("file", event.Path).Msgf("start watching")
@@ -173,7 +204,8 @@ func (w *Watcher) removeInode(key uint64) {
 	w.consumers.Delete(file)
 }
 
-//Start method to start the watcher for the given consumers
+// Start method to start the watcher for the given consumers
+// nolint:gocyclo // TODO: decompose this function
 func (w *Watcher) Start() error {
 	defer func() {
 		if i := recover(); i != nil {
@@ -182,7 +214,6 @@ func (w *Watcher) Start() error {
 			if err := w.Start(); err != nil {
 				w.Error().Err(err)
 			}
-
 		}
 	}()
 	w.Debug().Msgf("consumer Count: %v", len(w.Consumers))
@@ -193,6 +224,7 @@ func (w *Watcher) Start() error {
 				w.Error().Msg("error casting file string from register")
 				return false
 			}
+
 			w.Debug().Msgf("Adding File: %v", stringFile)
 			consumerValue, ok := value.(Consumer)
 			if !ok {
@@ -206,16 +238,22 @@ func (w *Watcher) Start() error {
 	for {
 		select {
 		case event := <-w.Events:
+			// Send metric to graphite for every event caught, increement by 1
+			w.Metrics.RecordByEventsCaught()
 			switch event.Mode {
 			case dirCreate:
 				w.addInode(&event, true)
 			case fileCreate:
-				file, err := w.GetFileFromInode(event.Device) //event triggers occasionally after file has been created.
+				file, err := w.GetFileFromInode(event.Device) // event triggers occasionally after file has been created.
 				if file == "" && err != nil {
 					w.addInode(&event, false)
-					event.Inode = event.Device //update so that event is processed correctly.
+					event.Inode = event.Device // update so that event is processed correctly.
 				} else {
 					continue
+				}
+			case renameEvent:
+				if err := w.handleRenamingEvent(&event); err != nil {
+					w.Error().Msgf("unable to handle rename properly: %s", err)
 				}
 			}
 			w.Debug().Object("event", LogEvent(event)).Msg("event caught")
@@ -270,14 +308,6 @@ func (w *Watcher) Start() error {
 					w.Error().AnErr("error", err).Str("file", event.Path).Msg("consumer failed")
 				}
 
-				if err != ErrReload && event.Mode == renameEvent { //Rename event, reload consumer file, without consumer needed to worry about event types
-					err = w.RemoveFile(event.Path)
-					if err != nil {
-						w.Error().Err(err)
-					}
-					w.add(event.Path, consumer)
-				}
-
 				switch event.Mode {
 				case delFile:
 					w.removeInode(event.Inode)
@@ -292,7 +322,50 @@ func (w *Watcher) Start() error {
 	}
 }
 
-//Stop method to clean up anc gracefully exit the watcher and BPF
+func (w *Watcher) handleRenamingEvent(event *Event) error {
+	// delete mapping and consumer of a source file if we have that
+	if sourcePath, _ := w.GetFileFromInode(event.Device); sourcePath != "" {
+		w.consumers.Delete(sourcePath)
+		w.reverse.Delete(sourcePath)
+	}
+
+	if event.NewDevice == 0 { // renaming to non-existing file
+		targetDir, err := w.GetFileFromInode(event.NewInode)
+		if err != nil {
+			w.Error().Msgf("can't find record for inode %d: %s", event.NewInode, err)
+			return err
+		}
+
+		targetPath := path.Join(targetDir, event.Path)
+
+		w.mapping.Store(event.Device, targetPath)
+		w.reverse.Store(targetPath, event.Device)
+		event.Inode = event.NewInode // let's pretend we are creating a new file
+		w.addInode(event, false)     // TODO: implicit - proper event.Path is assigned in that function
+	} else { // renaming to existing file
+		targetPath, err := w.GetFileFromInode(event.NewDevice)
+		if err != nil {
+			w.Error().Msgf("can't find record for inode %d: %s", event.NewDevice, err)
+			return err
+		}
+
+		w.mapping.Delete(event.NewDevice) // delete inode->name relation for old inode
+
+		// this function add ebpf rules for new inode but keeping consumer for old path
+		// that's exactly that we need
+		if err := w.AddFile(targetPath); err != nil {
+			w.Error().Msgf("can't update monitoring for renamed file %s", targetPath)
+		}
+		event.Path = targetPath
+	}
+
+	// TODO: future code depends on that strange assignment, need to decouple it
+	event.Inode = event.Device
+
+	return nil
+}
+
+// Stop method to clean up anc gracefully exit the watcher and BPF
 func (w *Watcher) Stop() error {
 	close(w.CloseChannels)
 	w.Logger.Debug().Msg("gracefully exiting BPF")
