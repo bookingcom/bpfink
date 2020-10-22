@@ -253,7 +253,6 @@ func (f *FIM) start() error {
 
 				if e.Mode == 4 || e.Mode == 3 || e.Mode == 0 {
 					f.Debug().Msgf("name: %v", e.Name)
-					f.Debug().Msgf("name: %v", string(e.Name[:len(e.Name)]))
 
 					end := -1
 					for index, char := range e.Name {
