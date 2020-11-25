@@ -327,6 +327,10 @@ func (c Configuration) resolvePath(pathFull string) (string, os.FileInfo) {
 			}
 			return "", nil
 		}
+		if fileInfo.Mode()&os.ModeSocket != 0 {
+			return "", nil
+		}
+
 		fi = fileInfo
 		pathFull = linkPath
 	}
@@ -409,7 +413,7 @@ func (c Configuration) watcher() (*pkg.Watcher, error) {
 
 	for _, consumer := range consumers {
 		if err := consumer.Init(); err != nil {
-			logger.Fatal().Err(err).Msg("failed to init consumer")
+			logger.Error().Err(err).Msg("failed to init consumer")
 		}
 	}
 	return pkg.NewWatcher(func(w *pkg.Watcher) {
@@ -472,10 +476,7 @@ func run() error {
 	metrics.RecordByInstalledHost()
 	// send version metric
 	metrics.RecordVersion(Version)
-	err = metrics.RecordBPFMetrics()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("error starting bpf metrics")
-	}
+	metrics.RecordBPFMetrics()
 	key := make([]byte, keySize)
 	if config.Keyfile == "" {
 		if _, err := io.ReadFull(rand.Reader, key); err != nil {
