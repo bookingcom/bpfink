@@ -119,7 +119,7 @@ func (m *Metrics) RecordByInstalledHost() {
 }
 
 // RecordBPFMetrics send metrics for BPF hits and misses per probe
-func (m *Metrics) RecordBPFMetrics() error {
+func (m *Metrics) RecordBPFMetrics() {
 	go func() {
 		for range time.Tick(m.MetricsInterval) {
 			BPFMetrics, err := m.fetchBPFMetrics()
@@ -138,7 +138,6 @@ func (m *Metrics) RecordBPFMetrics() error {
 			}
 		}
 	}()
-	return nil
 }
 
 func (m *Metrics) fetchBPFMetrics() (map[string]bpfMetrics, error) {
@@ -150,7 +149,7 @@ func (m *Metrics) fetchBPFMetrics() (map[string]bpfMetrics, error) {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.Fatal(err)
+			log.Print(err)
 		}
 	}()
 
@@ -209,7 +208,7 @@ func (m *Metrics) fetchBPFMetrics() (map[string]bpfMetrics, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 	return BPFMetrics, nil
 }

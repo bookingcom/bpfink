@@ -209,11 +209,7 @@ func (w *Watcher) removeInode(key uint64) {
 func (w *Watcher) Start() error {
 	defer func() {
 		if i := recover(); i != nil {
-			w.Fatal().Msgf("Panic Caught")
 			w.Fatal().Msgf("Caught panic: %v", i)
-			if err := w.Start(); err != nil {
-				w.Error().Err(err)
-			}
 		}
 	}()
 	w.Debug().Msgf("consumer Count: %v", len(w.Consumers))
