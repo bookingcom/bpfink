@@ -11,6 +11,7 @@ import (
 	"os/signal"
 )
 
+// nolint:gochecknoglobals
 var cmd = &cobra.Command{
 	Use:   "bpfink",
 	Short: "FIM reporter",
@@ -23,30 +24,8 @@ var cmd = &cobra.Command{
 
 // Execute executes the root command.
 func Execute() error {
+	initCmd()
 	return cmd.Execute()
-}
-
-func init() {
-	flags := cmd.PersistentFlags()
-
-	// handling of debug mode
-	flags.BoolP("debug", "d", false, "Trigger debug logs")
-	_ = viper.BindPFlag("debug", flags.Lookup("debug"))
-
-	// handling of level logging
-	flags.StringP("level", "l", "info", `Set log level, choices are "debug", "info", "warn", "error", "off"`)
-	_ = viper.BindPFlag("level", flags.Lookup("level"))
-
-	// handling of database file
-	flags.String("database", DefaultDatabase, "Set path to Bolt database")
-	_ = viper.BindPFlag("database", flags.Lookup("database"))
-
-	// handling of New file from CLI
-	flags.String("New", DefaultConfigFile, "Path to a Configuration file")
-	_ = viper.BindPFlag("New", flags.Lookup("New"))
-
-	flags.Int("graphite-mode", 0, "Set graphite mode: 1 nothing, 2 stdout, 3 remote graphite")
-	_ = viper.BindPFlag("graphite-mode", flags.Lookup("graphite-mode"))
 }
 
 func runCmd() error {
@@ -99,6 +78,29 @@ func runCmd() error {
 	logger.Info().Msgf("bpfink initialized: version %s, consumers count: %d", BuildDate, len(watcher.Consumers))
 	go handleExit(watcher)
 	return watcher.Start()
+}
+
+func initCmd() {
+	flags := cmd.PersistentFlags()
+
+	// handling of debug mode
+	flags.BoolP("debug", "d", false, "Trigger debug logs")
+	_ = viper.BindPFlag("debug", flags.Lookup("debug"))
+
+	// handling of level logging
+	flags.StringP("level", "l", "info", `Set log level, choices are "debug", "info", "warn", "error", "off"`)
+	_ = viper.BindPFlag("level", flags.Lookup("level"))
+
+	// handling of database file
+	flags.String("database", DefaultDatabase, "Set path to Bolt database")
+	_ = viper.BindPFlag("database", flags.Lookup("database"))
+
+	// handling of New file from CLI
+	flags.String("New", DefaultConfigFile, "Path to a Configuration file")
+	_ = viper.BindPFlag("New", flags.Lookup("New"))
+
+	flags.Int("graphite-mode", 0, "Set graphite mode: 1 nothing, 2 stdout, 3 remote graphite")
+	_ = viper.BindPFlag("graphite-mode", flags.Lookup("graphite-mode"))
 }
 
 func handleExit(watcher *pkg.Watcher) {
