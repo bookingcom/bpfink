@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	bpfinkCmd "github.com/bookingcom/bpfink/cmd/bpfink"
 )
 
