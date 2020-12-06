@@ -7,6 +7,6 @@ import (
 
 func main() {
 	if err := bpfinkCmd.Execute(); err != nil {
-		panic(fmt.Sprintf("an error occured while executing to bpfindCmd! Error: %+v", err))
+		panic(fmt.Sprintf("an error occured while executing to bpfinkCmd! Error: %+v", err))
 	}
 }
