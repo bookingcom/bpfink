@@ -2,17 +2,18 @@ package bpfink
 
 import (
 	"bufio"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"sync"
+
 	"github.com/bookingcom/bpfink/pkg"
 	goMetrics "github.com/rcrowley/go-metrics"
 	"github.com/rs/zerolog"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	bolt "go.etcd.io/bbolt"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
-	"sync"
 )
 
 // nolint:gochecknoglobals

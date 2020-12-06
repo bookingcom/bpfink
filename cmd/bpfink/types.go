@@ -1,9 +1,10 @@
 package bpfink
 
 import (
+	"time"
+
 	"github.com/bookingcom/bpfink/pkg"
 	"github.com/rs/zerolog"
-	"time"
 )
 
 type IConfiguration interface {

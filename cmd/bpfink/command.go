@@ -2,13 +2,14 @@ package bpfink
 
 import (
 	"crypto/rand"
-	"github.com/bookingcom/bpfink/pkg"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/signal"
+
+	"github.com/bookingcom/bpfink/pkg"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // nolint:gochecknoglobals
