@@ -14,7 +14,6 @@ on:
       - '*.md'
       - 'Dockerfile'
       - 'LICENSE'
-      - 'Makefile'
   pull_request:
     paths-ignore:
       - '.github/workflows/ci-docker-build.yml'
@@ -26,7 +25,6 @@ on:
       - '*.md'
       - 'Dockerfile'
       - 'LICENSE'
-      - 'Makefile'
 
 jobs:
   build:
