@@ -10,7 +10,7 @@ install: $(PREFIX)/bin/$(BINARY)
 .PHONY: $(BINARY)
 $(BINARY):
 	$(MAKE) -r -C pkg/ebpf
-	go build -ldflags '$(LD_FLAGS)' -o $@ cmd/*.go
+	CGO_CPPFLAGS="-D SO_ATTACH_BPF=SO_ATTACH_FILTER -D SO_DETACH_BPF=SO_DETACH_FILTER" go build -ldflags '$(LD_FLAGS)' -o $@ cmd/*.go
 
 $(PREFIX)/bin/$(BINARY): $(BINARY)
 	install -p -D -m 0755 $< $@
